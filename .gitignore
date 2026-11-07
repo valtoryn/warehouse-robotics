@@ -26,3 +26,8 @@ tmp/
 
 # Generated artifacts (rebuild via tools/gen_urdf.py)
 generated/
+
+# colcon workspace outputs
+build/
+install/
+log/

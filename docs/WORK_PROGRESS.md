@@ -72,6 +72,11 @@
   - `tools/gen_urdf.py` — generates URDF skeleton (base + wheels + `<ros2_control>` tag)
     from robot config; output to `generated/` (git-ignored build artifact).
   - `.github/workflows/checks.yml` — CI running check_docs + check_config + URDF smoke test.
+  - `src/valtoryn_interfaces/` — ROS 2 interface package skeleton (ament_cmake,
+    rosidl): `Capability.msg`, `SafetyStatus.msg`, `GetCapabilities.srv`,
+    `GetModuleManifest.srv`. Interfaces are proposed; cannot be compiled until a
+    ROS distro is installed and the pin is decided.
+  - `.gitignore` extended for colcon outputs (`build/`, `install/`, `log/`).
 - README status block updated to reflect scaffolding (no robot software/sim/hardware yet).
 
 ## Remaining work

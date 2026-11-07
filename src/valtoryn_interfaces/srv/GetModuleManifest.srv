@@ -1,0 +1,12 @@
+# Fetch the module manifest YAML for a named module instance, plus its hash
+# for gate C3/C5 comparison. The manifest itself is the source of truth;
+# this service exposes it read-only to ROS nodes.
+# Status: proposed interface — not implemented.
+
+---
+string module_instance
+---
+string manifest_yaml         # serialised module manifest
+string manifest_hash         # hash of safety-relevant subset for C5 comparison
+bool found                   # false if instance unknown
+string error_message
