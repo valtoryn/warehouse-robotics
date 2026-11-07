@@ -71,22 +71,38 @@
   - `tools/check_config.py` — schema + C2-lite validator (needs PyYAML + jsonschema).
   - `tools/gen_urdf.py` — generates URDF skeleton (base + wheels + `<ros2_control>` tag)
     from robot config; output to `generated/` (git-ignored build artifact).
-  - `.github/workflows/checks.yml` — CI running check_docs + check_config + URDF smoke test.
+  - `.github/workflows/checks.yml` — CI running check_docs + check_config + URDF/launch smoke tests
+    + unit tests.
   - `src/valtoryn_interfaces/` — ROS 2 interface package skeleton (ament_cmake,
     rosidl): `Capability.msg`, `SafetyStatus.msg`, `GetCapabilities.srv`,
-    `GetModuleManifest.srv`. Interfaces are proposed; cannot be compiled until a
-    ROS distro is installed and the pin is decided.
+    `GetModuleManifest.srv`, facility-model msgs (`FacilityNode/Edge/Zone/Asset/Map`).
+    Interfaces are proposed; cannot be compiled until a ROS distro is installed
+    and the pin is decided.
+  - `src/valtoryn_task_bt/` — proposed warehouse task BT skeleton
+    (`bt/ref_amr_mission.xml`); node bindings are Phase 3 work.
+  - `tools/gen_launch.py` — generates controllers.yaml + Nav2 params stub +
+    launch.py from robot config.
+  - `tools/gen_urdf.py` — generates URDF skeleton (base + wheels + `<ros2_control>` tag)
+    from robot config; output to `generated/` (git-ignored build artifact).
+  - `tests/test_tools.py` — 16 unit tests covering validator, URDF and launch
+    generators (found and fixed two real bugs: exact-version ranges, path handling).
+  - `docs/engineering/DEPENDENCY_MATRIX.md` — ROS/Gazebo/Nav2/RMW/VDA compatibility
+    matrix with per-row status (Phase 0 leftover).
   - `.gitignore` extended for colcon outputs (`build/`, `install/`, `log/`).
 - README status block updated to reflect scaffolding (no robot software/sim/hardware yet).
 
 ## Remaining work
 
-- **Phase 2 proper (blocked on G-A/G-C):** colcon workspace, `valtoryn_interfaces` ROS packages,
-  config generator emitting URDF/launch/params, mock + Gazebo backends, lifecycle supervisor,
-  CI. Do NOT start ROS packages until the distro pin decision (Jazzy vs Lyrical) is made —
-  ros2_control APIs differ between them (see DECISION_GATES G-D).
-- Phase 1 leftovers: G-C spike execution, G-F floor survey, camera/motor driver per-part checks,
-  owner decision on distro pin.
+- **Phase 2 proper (blocked on G-A/G-C):** the ROS-independent skeleton is done
+  (schemas, validators, URDF/launch/params generators, interface + BT package
+  skeletons, CI). Still needed once a ROS host + distro pin exist:
+  compile `valtoryn_interfaces`/`valtoryn_task_bt`, the `ros2_control` hardware
+  component (`valtoryn_diff_drive/DiffDriveHardware` placeholder in generated URDF),
+  lifecycle supervisor, diagnostics plumbing, mock + Gazebo backends,
+  `launch_testing` + headless Gazebo smoke in CI.
+- Phase 1 leftovers: G-C spike execution, G-F floor survey, camera/motor driver
+  per-part checks, owner decision on distro pin (Jazzy vs Lyrical — see
+  DECISION_GATES.md "Consequence"; evidence favours Jazzy for first hardware).
 - `python tools/check_docs.py --external` where practical (486 URLs; inconclusive-prone).
 
 ## Exact next action
