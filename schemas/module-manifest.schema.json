@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/valtoryn/warehouse-robotics/schemas/module-manifest.schema.json",
+  "title": "Valtoryn module manifest",
+  "description": "Per-module manifest per docs/architecture/MODULARITY_SPECIFICATION.md section 4. Declares identity, interfaces, frames/mounts, hardware identity, platform requirements, verification state and safety evidence references.",
+  "type": "object",
+  "required": [
+    "manifest_schema_version", "module_type", "module_version",
+    "provides", "requires", "frames", "platform", "verification", "safety"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "manifest_schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "module_type": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+    },
+    "module_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+",
+      "description": "SemVer. Optional -<prerelease> / +<build> suffix allowed per SemVer 2.0.0."
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vcs": { "type": "string" },
+        "image_crc": { "type": "string" }
+      }
+    },
+    "provides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/interface_decl" }
+    },
+    "requires": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/interface_decl" }
+    },
+    "frames": {
+      "type": "object",
+      "required": ["declared"],
+      "additionalProperties": false,
+      "properties": {
+        "declared": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "REP-105 frame names this module contributes."
+        },
+        "mounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["mount_type", "occupied_mounts"],
+            "additionalProperties": false,
+            "properties": {
+              "mount_type": { "type": "string" },
+              "occupied_mounts": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "hardware_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vendor": { "type": "string" },
+        "product": { "type": "string" },
+        "firmware_range": {
+          "type": "string",
+          "description": "SemVer range of acceptable firmware, checked at gate C3."
+        }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "required": ["ros_distro"],
+      "additionalProperties": false,
+      "properties": {
+        "ros_distro": { "type": "string" },
+        "rmw": { "type": "string" },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "version_gte": { "type": "string" },
+              "version_lt": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["capabilities"],
+      "additionalProperties": false,
+      "properties": {
+        "verified_by": { "type": "string" },
+        "verified_at": { "type": "string", "format": "date" },
+        "verification_method": { "type": "string" },
+        "capabilities": {
+          "type": "object",
+          "required": ["declared", "verified"],
+          "additionalProperties": false,
+          "properties": {
+            "declared": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Capabilities the module claims (open/extensible enumeration)."
+            },
+            "verified": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Subset actually verified. declared - verified = unverified claims."
+            }
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["evidence_ids", "claim"],
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "References to safety-evidence records. Empty means no safety evidence."
+        },
+        "claim": {
+          "type": "string",
+          "enum": ["none", "safety_ready", "safety_certified"],
+          "description": "safety_certified requires a linked third-party assessment; nothing in this repo currently qualifies."
+        },
+        "safety_field_hash": {
+          "type": "string",
+          "description": "Hash of the safety-relevant field subset, used by gate C5."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "interface_decl": {
+      "type": "object",
+      "required": ["kind", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "ros_topic", "ros_service", "ros_action", "ros_parameter",
+            "ros2_control", "mechanical", "electrical", "network"
+          ]
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "version_range": {
+          "type": "string",
+          "description": "SemVer range for ROS interface type packages (REP-149 semantics)."
+        },
+        "type_hash": {
+          "type": "string",
+          "description": "Pinned hash of the ROS interface type definition for gate C3 comparison."
+        },
+        "unit": {
+          "type": "string",
+          "description": "REP-103 unit symbol for ros2_control interfaces."
+        },
+        "min": { "type": "number" },
+        "max": { "type": "number" }
+      }
+    }
+  }
+}

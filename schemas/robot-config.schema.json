@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/valtoryn/warehouse-robotics/schemas/robot-config.schema.json",
+  "title": "Valtoryn robot configuration",
+  "description": "Declarative, schema-versioned robot variant configuration. Source of truth per docs/architecture/MODULARITY_SPECIFICATION.md section 3. Generated artifacts (URDF, launch, params) are build outputs and must be reproducible from this file plus module manifests.",
+  "type": "object",
+  "required": ["schema_version", "robot", "modules", "target"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Config schema SemVer. Breaking changes increment major."
+    },
+    "robot": {
+      "type": "object",
+      "required": ["id", "variant"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "serial": {
+          "type": "string",
+          "description": "Per-unit serial/UUID. Optional in simulation configs."
+        },
+        "variant": { "type": "string", "minLength": 1 }
+      }
+    },
+    "modules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/module" }
+    },
+    "target": {
+      "type": "object",
+      "required": ["profile", "ros_distro"],
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "type": "string",
+          "enum": ["simulation", "hardware", "hil"]
+        },
+        "ros_distro": { "type": "string", "minLength": 1 },
+        "rmw": {
+          "type": "string",
+          "description": "e.g. rmw_fastrtps_cpp, rmw_zenoh_cpp. Never mix RMWs in one system."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "module": {
+      "type": "object",
+      "required": ["type", "version", "instance"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+          "description": "Reverse-domain module type name, e.g. com.valtoryn.chassis.differential."
+        },
+        "version": {
+          "type": "string",
+          "description": "SemVer range (REP-149 style), e.g. ^1.0, >=1.2 <2.0. Resolved against module manifest module_version."
+        },
+        "instance": { "type": "string", "minLength": 1 },
+        "parent_frame": {
+          "type": "string",
+          "description": "REP-105 frame this module mounts to. Required for physical modules; omit for software-only."
+        },
+        "pose": {
+          "type": "object",
+          "required": ["xyz", "rpy"],
+          "additionalProperties": false,
+          "properties": {
+            "xyz": {
+              "type": "array", "minItems": 3, "maxItems": 3,
+              "items": { "type": "number" },
+              "description": "Metres, parent_frame frame."
+            },
+            "rpy": {
+              "type": "array", "minItems": 3, "maxItems": 3,
+              "items": { "type": "number" },
+              "description": "Radians, roll/pitch/yaw, parent_frame frame."
+            }
+          }
+        },
+        "mount": {
+          "type": "object",
+          "required": ["mount_type"],
+          "additionalProperties": false,
+          "properties": {
+            "mount_type": { "type": "string", "minLength": 1 },
+            "occupied_mounts": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Logical mount IDs claimed by this module. Each mount ID may be occupied at most once per robot (gate C2)."
+            }
+          }
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Module parameters consumed by the config generator and drivers. Values must carry traceable units documented in the module manifest."
+        },
+        "safety_evidence": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "References to safety-evidence IDs (e.g. SE-000). References only — never safety claims."
+        },
+        "unvalidated": {
+          "type": "boolean",
+          "default": false,
+          "description": "Escape hatch for hardware outside the catalogue (R02 R7). Modules with unvalidated=true cannot pass gate C3 on motion/safety paths."
+        }
+      }
+    }
+  }
+}

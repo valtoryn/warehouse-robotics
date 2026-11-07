@@ -1,0 +1,67 @@
+# Example module manifest — com.valtoryn.chassis.differential
+# All values are proposed/placeholder pending hardware selection; verification
+# capabilities are declared-only (verified list is empty) until Phase 5+ testing.
+
+manifest_schema_version: "1.0.0"
+module_type: "com.valtoryn.chassis.differential"
+module_version: "1.0.0"
+
+provides:
+  - kind: "ros2_control"
+    name: "diff_drive_hw"
+    version_range: "^1.0"
+  - kind: "ros_topic"
+    name: "/odom"
+    version_range: "^1.0"
+  - kind: "mechanical"
+    name: "payload_deck"
+
+requires:
+  - kind: "ros2_control"
+    name: "controller_manager"
+  - kind: "electrical"
+    name: "24V_power_bus"
+  - kind: "mechanical"
+    name: "chassis_base"
+
+frames:
+  declared:
+    - "base_link"
+    - "wheel_fl_link"
+    - "wheel_fr_link"
+    - "wheel_rl_link"
+    - "wheel_rr_link"
+    - "odom_link"
+  mounts:
+    - mount_type: "chassis_base"
+      occupied_mounts: ["deck_primary", "deck_secondary"]
+
+hardware_identity:
+  vendor: "valtoryn"
+  product: "ref-amr-chassis-diff"
+  firmware_range: ">=1.0.0 <2.0.0"
+
+platform:
+  ros_distro: "lyrical"
+  rmw: "rmw_fastrtps_cpp"
+  dependencies:
+    - name: "ros2_control"
+      version_gte: "6.0"
+    - name: "ros2_controllers"
+      version_gte: "6.0"
+    - name: "gazebo_ros2_control"
+      version_gte: "1.0"
+
+verification:
+  verified_by: "none"
+  verification_method: "none"
+  capabilities:
+    declared:
+      - "differential_drive_kinematics"
+      - "ros2_control_hardware_component"
+      - "gazebo_simulation_backend"
+    verified: []
+
+safety:
+  evidence_ids: []
+  claim: "none"

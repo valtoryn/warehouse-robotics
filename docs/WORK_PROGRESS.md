@@ -1,4 +1,4 @@
-# Work progress — architecture milestone
+# Work progress — architecture + Phase 1 milestone
 
 > Persistent checkpoint for multi-session work. Update after each completed milestone.
 > Last updated: 2026-11-07.
@@ -48,20 +48,40 @@
 - `171c805` docs: add system architecture and modularity specification — pushed, verified on remote.
 - (engineering commit pending at time of writing)
 
+## Next milestone — Phase 1 decision gates + Phase 2 skeleton start
+
+- `docs/engineering/DECISION_GATES.md` — gate evidence record created.
+  - **G-A not passed:** Jetson Orin Nano ships JetPack 7.2 on Ubuntu 24.04; Lyrical needs Ubuntu 26.04.
+    Evidence favours Jazzy for first hardware target or a compute re-selection; pin still open (owner decision).
+  - **G-B partial:** `rplidar_ros` released for Lyrical (2.1.0-5, stale upstream caveat);
+    `sicktoolbox` unmaintained since 2019 → safety-scanner ROS telemetry is an open item
+    (protective function lives in safety domain, so non-blocking). Cameras/motor drives per-part pending.
+  - **G-C pending:** one-week Lyrical+Jetty spike needs a Linux/ROS host; blocked on G-A.
+  - **G-D passed with caveats:** Lyrical ros2_control docs live; Kilted→Lyrical breaking changes
+    recorded (export APIs removed, HardwareInfo→HardwareComponentParams). Static hardware model
+    confirmed unchanged — cold-reconfiguration default stands.
+  - **G-E not passed:** `vda5050_interfaces` implements spec 2.0.0 only; master API experimental.
+    Thin-build/contingency plan confirmed for Phase 4.
+  - **G-F pending:** needs physical floor survey + supplier data.
+- Phase 2 partial scaffold (ROS-independent parts only):
+  - `schemas/robot-config.schema.json`, `schemas/module-manifest.schema.json` (JSON Schema 2020-12).
+  - `config/robots/ref-amr-diff-v1.yaml` — reference robot config (simulation profile, placeholder dims).
+  - `modules/com.valtoryn.chassis.differential/manifest.yaml`,
+    `modules/com.valtoryn.compute.jetson_orin/manifest.yaml` — example manifests.
+  - `tools/check_config.py` — schema + C2-lite validator (needs PyYAML + jsonschema).
+- README status block updated to reflect scaffolding (no robot software/sim/hardware yet).
+
 ## Remaining work
 
-- **Milestone C — engineering specifications** (in progress):
-  - `docs/engineering/REFERENCE_ROBOT_SPECIFICATION.md` — **DONE** (`b139d31`).
-  - `docs/engineering/HARDWARE_INTERFACE_SPECIFICATION.md` — **DONE** (commit pending).
-  - `docs/engineering/SIMULATION_REQUIREMENTS.md` — **DONE** (`558c659`).
-  - `docs/engineering/VALIDATION_STRATEGY.md` — **DONE** (`c23792d`).
-  - `docs/engineering/DEVELOPMENT_ROADMAP.md` — **DONE** (`38fa897`).
-  - `docs/ARCHITECTURE_MILESTONE_REPORT.md` — **DONE** (commit pending).
-- Final: consistency audit across all docs, `python tools/check_docs.py --external` where practical,
-  final push verification. Milestone documentation is otherwise COMPLETE.
+- **Phase 2 proper (blocked on G-A/G-C):** colcon workspace, `valtoryn_interfaces` ROS packages,
+  config generator emitting URDF/launch/params, mock + Gazebo backends, lifecycle supervisor,
+  CI. Do NOT start ROS packages until the distro pin decision (Jazzy vs Lyrical) is made —
+  ros2_control APIs differ between them (see DECISION_GATES G-D).
+- Phase 1 leftovers: G-C spike execution, G-F floor survey, camera/motor driver per-part checks,
+  owner decision on distro pin.
+- `python tools/check_docs.py --external` where practical (486 URLs; inconclusive-prone).
 
 ## Exact next action
 
-Commit `docs/engineering/REFERENCE_ROBOT_SPECIFICATION.md`, then write
-`docs/engineering/HARDWARE_INTERFACE_SPECIFICATION.md` standardising actuator/sensor/power/compute/
-communication/payload/safety interfaces per HARDWARE_ABSTRACTION.md and R03 §5, §11, §13.
+Owner decision needed on the distro pin (see DECISION_GATES.md "Consequence" section). Once pinned:
+create the colcon workspace and `valtoryn_interfaces` package skeleton per SYSTEM_ARCHITECTURE layer 3.

@@ -4,10 +4,12 @@ An open-source effort to build a **fully modular autonomous warehouse robotics p
 that can run on different robot chassis, locomotion types, sensor sets and payload modules, from simulation through
 hardware-in-the-loop to physical deployment.
 
-> **Project status: early research and architecture phase. Nothing is implemented yet.**
-> There is no robot software, no simulation and no hardware in this repository at this time. Everything described as
-> a design, requirement or recommendation in the documentation is *proposed*, not built, not simulated and not
-> physically validated. Nothing here is safety-rated or certified for use around people.
+> **Project status: research, architecture and early platform scaffolding.**
+> The repository contains research, architecture and engineering specifications plus configuration tooling
+> (robot/module schemas and validators under `schemas/`, `config/`, `modules/`, `tools/`). There is still no
+> robot software, no simulation and no hardware. Everything described as a design, requirement or
+> recommendation is *proposed*, not built, not simulated and not physically validated. Nothing here is
+> safety-rated or certified for use around people.
 
 ## Vision
 

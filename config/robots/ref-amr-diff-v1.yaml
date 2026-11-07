@@ -1,0 +1,45 @@
+# Reference robot configuration — modular differential-drive AMR.
+# Simulation profile only. Physical dimensions/parameters are placeholders pending
+# REFERENCE_ROBOT_SPECIFICATION finalisation and gate G-F measurements; every value
+# here must be reconciled with that document before any hardware target is set.
+# See docs/architecture/MODULARITY_SPECIFICATION.md section 3 for field semantics.
+
+schema_version: "1.0.0"
+
+robot:
+  id: "valtoryn-ref-amr"
+  variant: "diff-v1"
+
+modules:
+  - type: "com.valtoryn.chassis.differential"
+    version: "^1.0.0"
+    instance: "base"
+    parent_frame: "base_link"
+    pose:
+      xyz: [0.0, 0.0, 0.0]
+      rpy: [0.0, 0.0, 0.0]
+    parameters:
+      wheel_radius: 0.075        # m [EST] pending supplier selection
+      wheel_separation: 0.60     # m [EST]
+      wheel_width: 0.05          # m [EST]
+      max_linear_velocity: 1.2   # m/s [EST]
+      max_angular_velocity: 1.5  # rad/s [EST]
+    safety_evidence: []
+    mount:
+      mount_type: "chassis_base"
+      occupied_mounts: ["deck_primary", "deck_secondary"]
+
+  - type: "com.valtoryn.compute.jetson_orin"
+    version: "^1.0.0"
+    instance: "compute_primary"
+    parent_frame: "base_link"
+    parameters:
+      ros_distro_target: "jazzy"   # see DECISION_GATES.md G-A: JetPack 7.2 ships Ubuntu 24.04
+    mount:
+      mount_type: "compute_tray"
+      occupied_mounts: ["compute_bay_1"]
+
+target:
+  profile: "simulation"
+  ros_distro: "lyrical"   # simulation host may use Lyrical; hardware target likely jazzy (G-A)
+  rmw: "rmw_fastrtps_cpp"
