@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- Valtoryn task behavior tree v0 — reference AMR mission skeleton.
+     Status: PROPOSED skeleton. Node bindings to Nav2/opennav_docking actions are
+     Phase 3 work (docs/engineering/DEVELOPMENT_ROADMAP.md). This file defines the
+     intended task composition only; it is not runnable yet.
+     See docs/architecture/SYSTEM_ARCHITECTURE.md layer L5 and R06 section 8.8. -->
+<root BTCPP_format="4">
+  <BehaviorTree ID="ValtorynRefAmrMission">
+    <Sequence name="mission">
+      <!-- Phase 3: bind NavigateToPose to nav2_msgs/NavigateToPose action -->
+      <NavigateToPose name="go_to_pick"/>
+      <!-- Phase 3: bind DockRobot to opennav_docking action; verify dock asset
+           from facility model (FacilityAsset.asset_type == "pick_station") -->
+      <DockRobot name="dock_for_pick"/>
+      <!-- Payload pick is a payload-module capability; stub until payload modules exist -->
+      <AlwaysSuccess name="payload_pick_stub"/>
+      <NavigateToPose name="go_to_drop"/>
+      <DockRobot name="dock_for_drop"/>
+      <AlwaysSuccess name="payload_drop_stub"/>
+    </Sequence>
+  </BehaviorTree>
+</root>
