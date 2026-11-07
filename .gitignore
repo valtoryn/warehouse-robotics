@@ -23,3 +23,6 @@ tmp/
 *.pem
 *.key
 .claude/settings.local.json
+
+# Generated artifacts (rebuild via tools/gen_urdf.py)
+generated/

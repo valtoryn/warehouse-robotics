@@ -69,6 +69,9 @@
   - `modules/com.valtoryn.chassis.differential/manifest.yaml`,
     `modules/com.valtoryn.compute.jetson_orin/manifest.yaml` — example manifests.
   - `tools/check_config.py` — schema + C2-lite validator (needs PyYAML + jsonschema).
+  - `tools/gen_urdf.py` — generates URDF skeleton (base + wheels + `<ros2_control>` tag)
+    from robot config; output to `generated/` (git-ignored build artifact).
+  - `.github/workflows/checks.yml` — CI running check_docs + check_config + URDF smoke test.
 - README status block updated to reflect scaffolding (no robot software/sim/hardware yet).
 
 ## Remaining work

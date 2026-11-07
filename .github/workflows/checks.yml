@@ -1,0 +1,28 @@
+name: docs-and-config-checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install config-validator dependencies
+        run: pip install pyyaml jsonschema
+
+      - name: Documentation checks
+        run: python tools/check_docs.py
+
+      - name: Robot config and manifest checks
+        run: python tools/check_config.py
+
+      - name: URDF generation smoke test
+        run: python tools/gen_urdf.py config/robots/ref-amr-diff-v1.yaml --out /tmp/ref-amr.urdf
