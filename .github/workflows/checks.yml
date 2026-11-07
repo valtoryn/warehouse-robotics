@@ -26,3 +26,6 @@ jobs:
 
       - name: URDF generation smoke test
         run: python tools/gen_urdf.py config/robots/ref-amr-diff-v1.yaml --out /tmp/ref-amr.urdf
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v

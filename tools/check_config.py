@@ -37,6 +37,13 @@ def load_yaml(path: Path):
         return yaml.safe_load(fh)
 
 
+def rel(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def validate(instance, schema: dict, label: str) -> list[str]:
     validator = Draft202012Validator(schema)
     errors = []
@@ -58,8 +65,11 @@ def parse_range(spec: str):
     parts = spec.split(".")
     if len(parts) >= 3:
         try:
-            v = ".".join(int(p.split("-")[0].split("+")[0]) for p in parts[:3])
-            return (v, None)
+            nums = [int(p.split("-")[0].split("+")[0]) for p in parts[:3]]
+            v = ".".join(str(n) for n in nums)
+            # bare x.y.z means exactly that version
+            lt = f"{nums[0]}.{nums[1]}.{nums[2] + 1}"
+            return (v, lt)
         except ValueError:
             return None
     return None
@@ -95,7 +105,7 @@ def check_config(path: Path, config_schema: dict, manifest_schema: dict) -> list
     except yaml.YAMLError as exc:
         return [f"{path}: YAML parse error: {exc}"]
 
-    errors += validate(config, config_schema, str(path.relative_to(ROOT)))
+    errors += validate(config, config_schema, rel(path))
     if errors:
         return errors
 
@@ -106,14 +116,14 @@ def check_config(path: Path, config_schema: dict, manifest_schema: dict) -> list
     for mod in modules:
         mpath = manifest_path_for(mod["type"])
         if not mpath.exists():
-            errors.append(f"{path.name}: module '{mod['type']}' has no manifest at {mpath.relative_to(ROOT)}")
+            errors.append(f"{path.name}: module '{mod['type']}' has no manifest at {rel(mpath)}")
             continue
         try:
             manifest = load_yaml(mpath)
         except yaml.YAMLError as exc:
             errors.append(f"{mpath}: YAML parse error: {exc}")
             continue
-        errors += validate(manifest, manifest_schema, str(mpath.relative_to(ROOT)))
+        errors += validate(manifest, manifest_schema, str(rel(mpath)))
         if errors:
             continue
         manifests[mod["type"]] = manifest
@@ -150,7 +160,7 @@ def check_all_manifests(manifest_schema: dict) -> list[str]:
         except yaml.YAMLError as exc:
             errors.append(f"{mpath}: YAML parse error: {exc}")
             continue
-        errors += validate(manifest, manifest_schema, str(mpath.relative_to(ROOT)))
+        errors += validate(manifest, manifest_schema, str(rel(mpath)))
     return errors
 
 
