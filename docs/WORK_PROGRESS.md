@@ -55,9 +55,10 @@
   - `docs/engineering/HARDWARE_INTERFACE_SPECIFICATION.md` — **DONE** (commit pending).
   - `docs/engineering/SIMULATION_REQUIREMENTS.md` — **DONE** (`558c659`).
   - `docs/engineering/VALIDATION_STRATEGY.md` — **DONE** (`c23792d`).
-  - `docs/engineering/DEVELOPMENT_ROADMAP.md` — next.
-- Final: consistency audit across all docs, `docs/ARCHITECTURE_MILESTONE_REPORT.md`,
-  `python tools/check_docs.py --external` where practical, final push verification.
+  - `docs/engineering/DEVELOPMENT_ROADMAP.md` — **DONE** (`38fa897`).
+  - `docs/ARCHITECTURE_MILESTONE_REPORT.md` — **DONE** (commit pending).
+- Final: consistency audit across all docs, `python tools/check_docs.py --external` where practical,
+  final push verification. Milestone documentation is otherwise COMPLETE.
 
 ## Exact next action
 
