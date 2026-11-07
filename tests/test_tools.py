@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
 import check_config  # noqa: E402
+import gen_launch  # noqa: E402
 import gen_urdf  # noqa: E402
 import yaml  # noqa: E402
 
@@ -163,6 +164,28 @@ class GenUrdfTests(unittest.TestCase):
         config = {"robot": {"id": "x", "variant": "v"}, "modules": [], "target": {}}
         with self.assertRaises(SystemExit):
             gen_urdf.generate(config)
+
+
+class GenLaunchTests(unittest.TestCase):
+    def setUp(self):
+        self.config = yaml.safe_load(
+            (ROOT / "config/robots/ref-amr-diff-v1.yaml").read_text(encoding="utf-8")
+        )
+
+    def test_controller_params_parse_and_use_config(self):
+        text = gen_launch.controller_params(self.config)
+        params = yaml.safe_load(text)
+        ddc = params["diff_drive_controller"]["ros__parameters"]
+        self.assertAlmostEqual(ddc["wheel_separation"], 0.6)
+        self.assertEqual(ddc["left_wheel_names"], ["wheel_fl_joint", "wheel_rl_joint"])
+
+    def test_nav2_params_parse(self):
+        params = yaml.safe_load(gen_launch.nav2_params(self.config))
+        self.assertIn("FollowPath", params["controller_server"]["ros__parameters"]["controller_plugins"])
+
+    def test_launch_py_is_valid_python(self):
+        import ast
+        ast.parse(gen_launch.launch_py(self.config, "ref-amr-diff-v1"))
 
 
 if __name__ == "__main__":
