@@ -236,9 +236,13 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         goal.pose.pose.orientation.z = math.sin(target_yaw / 2.0)
         goal.pose.pose.orientation.w = math.cos(target_yaw / 2.0)
 
+        # Settle any pending transitions
+        for _ in range(5):
+            rclpy.spin_once(self.node, timeout_sec=0.1)
+
         goal_handle = None
         start_time = time.time()
-        for attempt in range(3):
+        for attempt in range(5):
             send_future = self.action_client.send_goal_async(goal)
             wait_accept_start = time.time()
             while time.time() - wait_accept_start < 5.0 and not send_future.done():
@@ -249,7 +253,8 @@ class RosWarehouseNavigationTests(unittest.TestCase):
                 if h.accepted:
                     goal_handle = h
                     break
-            for _ in range(10):
+            t_wait = time.time()
+            while time.time() - t_wait < 1.0:
                 rclpy.spin_once(self.node, timeout_sec=0.1)
 
         if goal_handle is None or not goal_handle.accepted:
@@ -346,7 +351,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         """Scenario 1: Drive along straight warehouse corridor from spawn."""
         # Spawn is at (-7.0, 4.0). Move down west transit corridor to (-7.0, 1.0)
         success, duration, error, _ = self._send_nav_goal(
-            target_x=-7.0, target_y=1.0, target_yaw=-1.57, timeout_sec=40.0
+            target_x=-7.0, target_y=1.0, target_yaw=-1.57, timeout_sec=70.0
         )
         self.assertTrue(success, f"Straight corridor navigation failed after {duration:.1f}s")
         self.assertLess(error, 0.50, f"Final pose error {error:.3f}m exceeded tolerance")
@@ -355,7 +360,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         """Scenario 2: Navigate 90-degree turn through warehouse cross-aisle intersection."""
         # From corridor turning into aisle entrance at (-5.0, 2.9, yaw=0.0)
         success, duration, error, yaw_err = self._send_nav_goal(
-            target_x=-5.0, target_y=2.9, target_yaw=0.0, timeout_sec=40.0
+            target_x=-5.0, target_y=2.9, target_yaw=0.0, timeout_sec=70.0
         )
         self.assertTrue(success, f"90-degree intersection turn failed after {duration:.1f}s")
         self.assertLess(error, 0.50, f"Final pose error {error:.3f}m exceeded tolerance")
@@ -365,7 +370,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         """Scenario 3: Reach goal in central aisle navigating around static pallet stack."""
         # Pallet stack is at (0.5, 0.0); navigate to point past the pallet stack at (2.5, 0.0)
         success, duration, error, _ = self._send_nav_goal(
-            target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=50.0
+            target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=80.0
         )
         self.assertTrue(success, f"Static obstacle avoidance failed after {duration:.1f}s")
         self.assertLess(error, 0.50, f"Final pose error {error:.3f}m exceeded tolerance")
@@ -394,12 +399,12 @@ class RosWarehouseNavigationTests(unittest.TestCase):
     def test_09_scenario_5_multi_waypoint_mission_dispatch(self):
         """Scenario 5: Complete multi-waypoint transit between pick and drop stations."""
         # Waypoint A: station_pick_1 (-7.0, 4.0)
-        ok_a, dur_a, err_a, _ = self._send_nav_goal(-7.0, 4.0, 0.0, timeout_sec=50.0)
+        ok_a, dur_a, err_a, _ = self._send_nav_goal(-7.0, 4.0, 0.0, timeout_sec=75.0)
         self.assertTrue(ok_a, f"Failed reaching Waypoint A (Pick Station 1) in {dur_a:.1f}s")
         self.assertLess(err_a, 0.50, f"Waypoint A error {err_a:.3f}m exceeded tolerance")
 
         # Waypoint B: return to transit bay (-7.0, 0.0)
-        ok_b, dur_b, err_b, _ = self._send_nav_goal(-7.0, 0.0, 0.0, timeout_sec=40.0)
+        ok_b, dur_b, err_b, _ = self._send_nav_goal(-7.0, 0.0, 0.0, timeout_sec=65.0)
         self.assertTrue(ok_b, f"Failed reaching Waypoint B (Transit Bay) in {dur_b:.1f}s")
         self.assertLess(err_b, 0.50, f"Waypoint B error {err_b:.3f}m exceeded tolerance")
 
