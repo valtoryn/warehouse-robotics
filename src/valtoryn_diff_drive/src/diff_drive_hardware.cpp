@@ -4,6 +4,8 @@
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <set>
+#include <string>
 #include <vector>
 
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
@@ -30,22 +32,51 @@ CallbackReturn DiffDriveHardware::on_init(const hardware_interface::HardwareInfo
     mock_hardware_ = true;  // Default to mock mode for safe simulation / bringup
   }
 
+  // Enforce fail-closed safety rule: physical backend is not yet implemented.
+  if (!mock_hardware_)
+  {
+    RCLCPP_FATAL(
+      rclcpp::get_logger("DiffDriveHardware"),
+      "Physical hardware backend (CAN / CiA 402) is not yet implemented. "
+      "Set <param name=\"mock_hardware\">true</param> for software loopback or "
+      "use gz_ros2_control/GazeboSimSystem for Gazebo simulation.");
+    return CallbackReturn::ERROR;
+  }
+
   auto can_it = info_.hardware_parameters.find("can_interface");
   if (can_it != info_.hardware_parameters.end())
   {
     can_interface_ = can_it->second;
   }
 
+  if (info_.joints.empty())
+  {
+    RCLCPP_FATAL(
+      rclcpp::get_logger("DiffDriveHardware"),
+      "No joints configured in <ros2_control> description.");
+    return CallbackReturn::ERROR;
+  }
+
   joint_names_.clear();
+  std::set<std::string> unique_names;
+
   for (const auto & joint : info_.joints)
   {
-    // Validate command interface
+    if (!unique_names.insert(joint.name).second)
+    {
+      RCLCPP_FATAL(
+        rclcpp::get_logger("DiffDriveHardware"),
+        "Duplicate joint name '%s' in <ros2_control> description.", joint.name.c_str());
+      return CallbackReturn::ERROR;
+    }
+
+    // Validate command interface: exactly one velocity command interface required
     if (joint.command_interfaces.size() != 1)
     {
       RCLCPP_FATAL(
         rclcpp::get_logger("DiffDriveHardware"),
-        "Joint '%s' has %zu command interfaces found. 1 expected.", joint.name.c_str(),
-        joint.command_interfaces.size());
+        "Joint '%s' has %zu command interfaces found. Exactly 1 expected.",
+        joint.name.c_str(), joint.command_interfaces.size());
       return CallbackReturn::ERROR;
     }
     if (joint.command_interfaces[0].name != hardware_interface::HW_IF_VELOCITY)
@@ -57,22 +88,36 @@ CallbackReturn DiffDriveHardware::on_init(const hardware_interface::HardwareInfo
       return CallbackReturn::ERROR;
     }
 
-    // Validate state interfaces (position + velocity)
-    if (joint.state_interfaces.size() < 2)
+    // Validate state interfaces: must provide both position and velocity
+    bool has_position = false;
+    bool has_velocity = false;
+    for (const auto & si : joint.state_interfaces)
+    {
+      if (si.name == hardware_interface::HW_IF_POSITION)
+      {
+        has_position = true;
+      }
+      else if (si.name == hardware_interface::HW_IF_VELOCITY)
+      {
+        has_velocity = true;
+      }
+    }
+
+    if (!has_position || !has_velocity)
     {
       RCLCPP_FATAL(
         rclcpp::get_logger("DiffDriveHardware"),
-        "Joint '%s' has %zu state interfaces found. At least 2 expected.", joint.name.c_str(),
-        joint.state_interfaces.size());
+        "Joint '%s' missing required state interface(s) (has_position=%s, has_velocity=%s).",
+        joint.name.c_str(), has_position ? "true" : "false", has_velocity ? "true" : "false");
       return CallbackReturn::ERROR;
     }
 
     joint_names_.push_back(joint.name);
   }
 
-  hw_commands_.resize(joint_names_.size(), 0.0);
-  hw_positions_.resize(joint_names_.size(), 0.0);
-  hw_velocities_.resize(joint_names_.size(), 0.0);
+  hw_commands_.assign(joint_names_.size(), 0.0);
+  hw_positions_.assign(joint_names_.size(), 0.0);
+  hw_velocities_.assign(joint_names_.size(), 0.0);
 
   RCLCPP_INFO(
     rclcpp::get_logger("DiffDriveHardware"),
@@ -108,6 +153,14 @@ std::vector<hardware_interface::CommandInterface> DiffDriveHardware::export_comm
 
 CallbackReturn DiffDriveHardware::on_activate(const rclcpp_lifecycle::State & /*previous_state*/)
 {
+  if (!mock_hardware_)
+  {
+    RCLCPP_FATAL(
+      rclcpp::get_logger("DiffDriveHardware"),
+      "Cannot activate DiffDriveHardware: physical driver communication is unimplemented.");
+    return CallbackReturn::ERROR;
+  }
+
   for (size_t i = 0; i < joint_names_.size(); ++i)
   {
     hw_commands_[i] = 0.0;
@@ -131,36 +184,46 @@ CallbackReturn DiffDriveHardware::on_deactivate(const rclcpp_lifecycle::State & 
 hardware_interface::return_type DiffDriveHardware::read(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & period)
 {
-  if (mock_hardware_)
+  if (!mock_hardware_)
   {
-    double dt = period.seconds();
+    return hardware_interface::return_type::ERROR;
+  }
+
+  double dt = period.seconds();
+  if (std::isfinite(dt) && dt > 0.0)
+  {
     for (size_t i = 0; i < joint_names_.size(); ++i)
     {
-      hw_positions_[i] += hw_velocities_[i] * dt;
+      if (std::isfinite(hw_velocities_[i]))
+      {
+        hw_positions_[i] += hw_velocities_[i] * dt;
+      }
     }
   }
-  else
-  {
-    // Physical hardware backend: read encoder ticks and velocities via CAN
-    // (Hardware implementation path for SocketCAN / CiA 402)
-  }
+
   return hardware_interface::return_type::OK;
 }
 
 hardware_interface::return_type DiffDriveHardware::write(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
-  if (mock_hardware_)
+  if (!mock_hardware_)
   {
-    for (size_t i = 0; i < joint_names_.size(); ++i)
+    return hardware_interface::return_type::ERROR;
+  }
+
+  for (size_t i = 0; i < joint_names_.size(); ++i)
+  {
+    if (std::isfinite(hw_commands_[i]))
     {
       hw_velocities_[i] = hw_commands_[i];
     }
+    else
+    {
+      hw_velocities_[i] = 0.0;
+    }
   }
-  else
-  {
-    // Physical hardware backend: transmit velocity setpoints to CAN drives
-  }
+
   return hardware_interface::return_type::OK;
 }
 
@@ -169,3 +232,4 @@ hardware_interface::return_type DiffDriveHardware::write(
 #include "pluginlib/class_list_macros.hpp"
 PLUGINLIB_EXPORT_CLASS(
   valtoryn_diff_drive::DiffDriveHardware, hardware_interface::SystemInterface)
+

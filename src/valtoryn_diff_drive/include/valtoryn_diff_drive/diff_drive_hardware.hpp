@@ -53,3 +53,4 @@ private:
 }  // namespace valtoryn_diff_drive
 
 #endif  // VALTORYN_DIFF_DRIVE__DIFF_DRIVE_HARDWARE_HPP_
+
