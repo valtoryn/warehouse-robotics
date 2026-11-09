@@ -53,9 +53,14 @@
     - `warehouse_sim.launch.py`: composable top-level simulation launch file.
   - **Executable Behavior Tree & Stubs (`valtoryn_task_bt`):** Implemented C++ action client `NavigateToPoseAction` and explicit non-functional material-handling stubs `PayloadPickStub` and `PayloadDropStub` (ensuring unverified hardware claims are never made), `DockRobotStub`, executable node `valtoryn_task_executor`, and route mission XML `warehouse_route_mission.xml`.
   - **Scenario Verification Runner & Tests:**
-    - `tests/test_ros_navigation.py`: 7 automated ROS integration tests for sensor validity, clock, costmap obstacle marking, straight corridor driving, 90-degree turning, static obstacle avoidance, and multi-waypoint missions.
-    - `tools/run_scenarios.py`: 4-stage automated scenario runner with preflight detection, artifact generation, simulation lifecycle management, metric tracking, and JSON report generation (`generated/scenario_report.json`).
-  - **CI Workflow Expansion:** Added `ros-jazzy-behaviortree-cpp` to `ros-jazzy-build-and-test`, and added dedicated containerized `gazebo-harmonic-nav2-simulation` job in `.github/workflows/checks.yml` running headless Gazebo Harmonic + Nav2 simulations and uploading scenario metrics artifacts.
+    - `tests/test_ros_navigation.py`: 10 automated ROS integration tests for sensor validity, clock, costmap obstacle marking, TF tree verification, straight corridor driving, 90-degree turning, static obstacle avoidance, dynamic obstacle detection, multi-waypoint missions, and BehaviorTree mission definitions. Configured with persistent `tf_buffer`, `use_sim_time: True`, and zero-timestamp goal poses for reliable TF lookups in simulation.
+    - `tools/run_scenarios.py`: 4-stage automated scenario runner with preflight detection, artifact generation, simulation lifecycle monitoring, strict regex test execution accounting (failing if 0 tests run or tests are skipped), active lifecycle check on `/bt_navigator`, and JSON report generation (`generated/scenario_report.json`).
+  - **CI Workflow Expansion & Root-Cause Bringup Stabilization:**
+    - Diagnosed and resolved GitHub Actions runs #20, #21, #22, and #23:
+      - Fixed launch tuple error in ROS 2 Jazzy by providing non-empty `dock_plugins: ["simple_charging_dock"]` and `docks: ["station_dock"]` in `nav2_params.yaml`.
+      - Resolved Jazzy collision monitor parameter type change by encoding polygon points as string parameter `"[[x, y], ...]"`.
+      - Resolved velocity command disconnect: `diff_drive_controller` in `controllers.yaml` set to `use_stamped_vel: false` which listens on `/diff_drive_controller/cmd_vel_unstamped` for `geometry_msgs/msg/Twist`. Aligned `cmd_vel_out_topic` across `collision_monitor_params.yaml`, `nav2_params.yaml`, and `nav2.launch.py` to route velocity commands directly to `/diff_drive_controller/cmd_vel_unstamped`.
+    - Added dedicated containerized `gazebo-harmonic-nav2-simulation` job in `.github/workflows/checks.yml` running headless Gazebo Harmonic + Nav2 simulations and uploading scenario metrics artifacts.
 
 ## Files created or modified
 
@@ -151,6 +156,9 @@
   - `29b4886` fix(launch): use capitalized boolean string literals for ROS 2 launch condition evaluation
   - `84df2fc` fix(nav2): use double-colon plugin class names for Nav2 planner and behavior plugins
   - `5b7124d` fix(nav2): add collision monitor and velocity smoother parameters and remap cmd_vel
+  - `33e3da2` fix(simulation): resolve launch tuple error and eliminate false-positive scenario reports
+  - `12d20f2` fix(nav2): format collision monitor polygon points as string for ROS 2 Jazzy
+  - `d1fcd2a` fix(nav2): configure docking server plugins and verify bt_navigator active state
 
 ## Remaining work
 
@@ -160,14 +168,4 @@
 
 ## Exact next action
 
-Begin Phase 4: design facility model representation, topology graph exporters, and multi-AMR coordination baseline in Gazebo Harmonic simulation.
-
-## Remaining work
-
-- **Owner Decision on Distro Pin:** Confirm choice between Option 1 (Jazzy Jalisco on Ubuntu 24.04 LTS, recommended) and Option 2/3.
-- **Phase 1 Leftovers:** Physical floor survey (G-F) upon site access.
-- **Phase 4 Fleet Coordination:** Author facility model, graph exporters, and multi-robot coordination baseline in simulation.
-
-## Exact next action
-
-Verify Phase 3 CI workflow run on GitHub Actions (`checks-and-ros-build`), reviewing both `ros-jazzy-build-and-test` and `gazebo-harmonic-nav2-simulation` jobs.
+Verify Phase 3 CI workflow run on GitHub Actions (`checks-and-ros-build`), reviewing `ros-jazzy-build-and-test` and `gazebo-harmonic-nav2-simulation` jobs.
