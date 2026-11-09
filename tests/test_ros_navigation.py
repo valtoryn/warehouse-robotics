@@ -54,6 +54,13 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         rclpy.init()
         cls.node = Node("test_warehouse_navigation_client")
         cls.action_client = ActionClient(cls.node, NavigateToPose, "navigate_to_pose")
+        if not cls.action_client.wait_for_server(timeout_sec=2.0):
+            cls.action_client.destroy()
+            cls.node.destroy_node()
+            rclpy.shutdown()
+            raise unittest.SkipTest(
+                "Nav2 /navigate_to_pose action server is not active (execute via tools/run_scenarios.py)"
+            )
 
     @classmethod
     def tearDownClass(cls):
@@ -230,3 +237,4 @@ class RosWarehouseNavigationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

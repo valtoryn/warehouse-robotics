@@ -177,3 +177,4 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("controllers_file", default_value=default_controllers, description="Path to controllers YAML"),
         OpaqueFunction(function=launch_setup),
     ])
+

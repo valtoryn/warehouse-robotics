@@ -71,3 +71,4 @@ def generate_launch_description() -> LaunchDescription:
         nav2,
         slam_nav,
     ])
+

@@ -129,3 +129,4 @@ void NavigateToPoseAction::onHalted()
 }
 
 }  // namespace valtoryn_task_bt
+

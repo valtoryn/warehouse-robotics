@@ -57,3 +57,4 @@ def generate_launch_description() -> LaunchDescription:
         declare_use_sim_time,
         slam_node,
     ])
+

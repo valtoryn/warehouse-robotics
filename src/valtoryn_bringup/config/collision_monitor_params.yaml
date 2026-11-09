@@ -34,3 +34,4 @@ collision_monitor:
     scan:
       type: "scan"
       topic: "/scan"
+

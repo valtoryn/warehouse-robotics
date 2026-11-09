@@ -94,6 +94,8 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 180) -> bool:
     print(f"\n[2/4] Executing {runs} run(s) of warehouse navigation scenarios...")
     setup_file = ROOT / "install" / "setup.bash"
     if not setup_file.exists():
+        setup_file = ROOT / "install" / "setup.sh"
+    if not setup_file.exists():
         print(f"ERROR: Workspace not built. Missing {setup_file}")
         return False
 

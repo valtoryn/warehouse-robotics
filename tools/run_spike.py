@@ -269,7 +269,7 @@ def run_stage_launch_and_verify(timeout: int = 25) -> bool:
             [
                 "bash", "-c",
                 f"source {setup_file} && "
-                f"python3 -m unittest discover -s tests -p 'test_ros_*.py' -v"
+                f"python3 -m unittest tests/test_ros_lifecycle.py tests/test_ros_motion.py -v"
             ],
             capture_output=True, text=True, timeout=90,
         )

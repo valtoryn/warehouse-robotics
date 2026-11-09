@@ -39,3 +39,4 @@ public:
 }  // namespace valtoryn_task_bt
 
 #endif  // VALTORYN_TASK_BT__DOCK_ROBOT_STUB_HPP_
+

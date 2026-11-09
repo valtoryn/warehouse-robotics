@@ -86,3 +86,4 @@ def generate_launch_description() -> LaunchDescription:
         nav2_bringup,
         collision_monitor_node,
     ])
+

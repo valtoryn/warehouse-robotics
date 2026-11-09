@@ -28,3 +28,4 @@ diff_drive_controller:
     enable_odom_tf: true
     pose_covariance_diagonal: [0.001, 0.001, 0.01, 0.01, 0.01, 0.05]
     twist_covariance_diagonal: [0.01, 0.01, 0.01, 0.01, 0.01, 0.05]
+
