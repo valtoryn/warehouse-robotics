@@ -172,6 +172,20 @@ class CheckConfigTests(unittest.TestCase):
         errors = self._run(cfg)
         self.assertTrue(errors)
 
+    def test_incompatible_simulation_profile_and_physical_backend(self):
+        self._write_manifest("com.valtoryn.chassis.differential")
+        cfg = dict(BASE_CONFIG)
+        cfg["target"] = {"profile": "simulation", "backend": "physical", "ros_distro": "jazzy"}
+        errors = self._run(cfg)
+        self.assertTrue(any("cannot use backend 'physical'" in e for e in errors))
+
+    def test_incompatible_hardware_profile_and_gazebo_backend(self):
+        self._write_manifest("com.valtoryn.chassis.differential")
+        cfg = dict(BASE_CONFIG)
+        cfg["target"] = {"profile": "hardware", "backend": "gazebo", "ros_distro": "jazzy"}
+        errors = self._run(cfg)
+        self.assertTrue(any("cannot use simulation backend 'gazebo'" in e for e in errors))
+
 
 class GenUrdfTests(unittest.TestCase):
     def test_generates_parseable_urdf(self):
@@ -199,6 +213,50 @@ class GenUrdfTests(unittest.TestCase):
         self.assertIsNotNone(plugin)
         self.assertEqual(plugin.text, "valtoryn_diff_drive/DiffDriveHardware")
 
+    def test_backend_selection_mock(self):
+        config = yaml.safe_load(
+            (ROOT / "config/robots/ref-amr-diff-v1.yaml").read_text(encoding="utf-8")
+        )
+        urdf = gen_urdf.generate(config, backend_override="mock")
+        plugin = urdf.find(".//ros2_control/hardware/plugin")
+        self.assertEqual(plugin.text, "valtoryn_diff_drive/DiffDriveHardware")
+        mock_param = urdf.find(".//ros2_control/hardware/param[@name='mock_hardware']")
+        self.assertIsNotNone(mock_param)
+        self.assertEqual(mock_param.text, "true")
+        self.assertIsNone(urdf.find("gazebo"))
+
+    def test_backend_selection_gazebo(self):
+        config = yaml.safe_load(
+            (ROOT / "config/robots/ref-amr-diff-v1.yaml").read_text(encoding="utf-8")
+        )
+        urdf = gen_urdf.generate(config, backend_override="gazebo")
+        plugin = urdf.find(".//ros2_control/hardware/plugin")
+        self.assertEqual(plugin.text, "gz_ros2_control/GazeboSimSystem")
+        gz_plugin = urdf.find(".//gazebo/plugin[@filename='gz_ros2_control-system']")
+        self.assertIsNotNone(gz_plugin)
+
+    def test_backend_selection_physical(self):
+        config = yaml.safe_load(
+            (ROOT / "config/robots/ref-amr-diff-v1.yaml").read_text(encoding="utf-8")
+        )
+        urdf = gen_urdf.generate(config, backend_override="physical")
+        plugin = urdf.find(".//ros2_control/hardware/plugin")
+        self.assertEqual(plugin.text, "valtoryn_diff_drive/DiffDriveHardware")
+        mock_param = urdf.find(".//ros2_control/hardware/param[@name='mock_hardware']")
+        self.assertIsNotNone(mock_param)
+        self.assertEqual(mock_param.text, "false")
+        can_param = urdf.find(".//ros2_control/hardware/param[@name='can_interface']")
+        self.assertIsNotNone(can_param)
+        self.assertEqual(can_param.text, "can0")
+        self.assertIsNone(urdf.find("gazebo"))
+
+    def test_invalid_backend_rejected(self):
+        config = yaml.safe_load(
+            (ROOT / "config/robots/ref-amr-diff-v1.yaml").read_text(encoding="utf-8")
+        )
+        with self.assertRaises(ValueError):
+            gen_urdf.generate(config, backend_override="nonexistent_backend")
+
     def test_wheel_geometry_and_orientation(self):
         config = dict(BASE_CONFIG)
         urdf = gen_urdf.generate(config)
@@ -216,7 +274,7 @@ class GenUrdfTests(unittest.TestCase):
         config = yaml.safe_load(
             (ROOT / "config/robots/ref-amr-diff-v1.yaml").read_text(encoding="utf-8")
         )
-        urdf = gen_urdf.generate(config)
+        urdf = gen_urdf.generate(config, backend_override="gazebo")
         gz_plugin = urdf.find(".//gazebo/plugin[@filename='gz_ros2_control-system']")
         self.assertIsNotNone(gz_plugin)
 
@@ -298,6 +356,85 @@ class KinematicsSimulationTests(unittest.TestCase):
     def test_trajectory_closure(self):
         pose, err = simulate_kinematics.run_mission_profile_sim(self.params)
         self.assertLess(err, 0.005)  # Error less than 5mm on closed 4m course
+
+    def test_zero_command(self):
+        ul, ur = self.sim.inverse_kinematics(0.0, 0.0)
+        self.assertEqual(ul, 0.0)
+        self.assertEqual(ur, 0.0)
+
+    def test_pure_rotation(self):
+        w = 1.0
+        ul, ur = self.sim.inverse_kinematics(0.0, w)
+        # In pure rotation, wheels turn in opposite directions
+        self.assertAlmostEqual(ul, -ur)
+        expected_speed = (self.params.wheel_separation / 2.0) * w / self.params.wheel_radius
+        self.assertAlmostEqual(ur, expected_speed)
+
+    def test_pure_translation(self):
+        v = 1.0
+        ul, ur = self.sim.inverse_kinematics(v, 0.0)
+        # In pure translation, both wheels turn at identical speed
+        self.assertAlmostEqual(ul, ur)
+        expected_speed = v / self.params.wheel_radius
+        self.assertAlmostEqual(ul, expected_speed)
+
+    def test_reverse_motion(self):
+        v = -0.5
+        ul, ur = self.sim.inverse_kinematics(v, 0.0)
+        self.assertAlmostEqual(ul, ur)
+        self.assertAlmostEqual(ul, v / self.params.wheel_radius)
+
+    def test_curvature_preservation_under_limit(self):
+        # Commanded velocities exceeding wheel limits
+        v_cmd = 2.0
+        w_cmd = 2.0
+        r_curvature_expected = v_cmd / w_cmd  # R = 1.0m
+
+        ul, ur = self.sim.inverse_kinematics(v_cmd, w_cmd)
+        v_out, w_out = self.sim.forward_kinematics(ul, ur)
+        self.assertGreater(w_out, 0.0)
+        r_curvature_actual = v_out / w_out
+        self.assertAlmostEqual(r_curvature_expected, r_curvature_actual, places=4)
+
+    def test_invalid_parameters_raise(self):
+        with self.assertRaises(ValueError):
+            simulate_kinematics.DiffDriveParams(
+                wheel_radius=0.0,
+                wheel_separation=0.5,
+                max_linear_velocity=1.0,
+                max_angular_velocity=1.0,
+            )
+        with self.assertRaises(ValueError):
+            simulate_kinematics.DiffDriveParams(
+                wheel_radius=0.1,
+                wheel_separation=-0.5,
+                max_linear_velocity=1.0,
+                max_angular_velocity=1.0,
+            )
+
+    def test_invalid_step_inputs_raise(self):
+        with self.assertRaises(ValueError):
+            self.sim.step(1.0, 0.0, dt=0.0)
+        with self.assertRaises(ValueError):
+            self.sim.step(1.0, 0.0, dt=0.02, left_slip=-0.1)
+
+    def test_asymmetric_slip_causes_drift(self):
+        sim1 = simulate_kinematics.DiffDriveSimulator(self.params)
+        sim2 = simulate_kinematics.DiffDriveSimulator(self.params)
+
+        # Drive forward for 1 second
+        dt = 0.02
+        for _ in range(50):
+            sim1.step(1.0, 0.0, dt, left_slip=1.0, right_slip=1.0)
+            # Left wheel slips by 20%
+            sim2.step(1.0, 0.0, dt, left_slip=0.8, right_slip=1.0)
+
+        # sim1 drives perfectly straight (y=0, theta=0)
+        self.assertAlmostEqual(sim1.pose.y, 0.0)
+        self.assertAlmostEqual(sim1.pose.theta, 0.0)
+
+        # sim2 turns towards the left (positive yaw in standard coordinates: ur > ul -> w > 0)
+        self.assertGreater(sim2.pose.theta, 0.0)
 
 
 if __name__ == "__main__":
