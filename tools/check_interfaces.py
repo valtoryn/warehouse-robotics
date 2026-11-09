@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 INTERFACES_DIR = ROOT / "src" / "valtoryn_interfaces"
 TASK_BT_DIR = ROOT / "src" / "valtoryn_task_bt"
 DIFF_DRIVE_DIR = ROOT / "src" / "valtoryn_diff_drive"
+LIFECYCLE_DIR = ROOT / "src" / "valtoryn_lifecycle"
 
 PRIMITIVE_TYPES = {
     "bool", "byte", "char",
@@ -239,6 +240,11 @@ def main() -> int:
                 errors.append(f"{plugin_xml.name}: class name does not match expected plugin name")
         except ET.ParseError as exc:
             errors.append(f"{plugin_xml.name}: XML parse error: {exc}")
+
+    # Lifecycle package check
+    life_pkg = LIFECYCLE_DIR / "package.xml"
+    if life_pkg.exists():
+        errors.extend(check_package_xml(life_pkg, ["rclpy", "lifecycle_msgs", "diagnostic_msgs"]))
 
     if errors:
         print("INTERFACE VALIDATION FAILED:")
