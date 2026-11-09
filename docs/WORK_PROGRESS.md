@@ -163,7 +163,8 @@
   - `1972636` fix(nav2): remove global SetRemap to prevent docking server DDS type collision and increase progress checker allowance
   - `1a8293d` fix(nav2): specify costmap width and height as integers for ROS 2 Jazzy
   - `71a76c1` fix(simulation): elevate LiDAR above chassis deck and expand scenario timeouts
-  - `fix(simulation)`: resolve pallet stack clearance, elevate LiDAR to 0.42m, and tune Nav2 controller parameters
+  - `6f3e8f3` fix(simulation): resolve aisle obstacle clearance, elevate LiDAR to 0.42m, and tune Nav2 controller
+  - `fix(simulation)`: tune wheel lateral friction for skid-steer, align spawn yaw, and disable FollowPath collision detection
 
 ## Remaining work
 

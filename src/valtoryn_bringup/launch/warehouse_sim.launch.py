@@ -51,7 +51,7 @@ def generate_launch_description() -> LaunchDescription:
     declare_x = DeclareLaunchArgument("x_pose", default_value="-7.0", description="Spawn X coordinate")
     declare_y = DeclareLaunchArgument("y_pose", default_value="4.0", description="Spawn Y coordinate")
     declare_z = DeclareLaunchArgument("z_pose", default_value="0.10", description="Spawn Z coordinate")
-    declare_yaw = DeclareLaunchArgument("yaw", default_value="0.0", description="Spawn Yaw coordinate")
+    declare_yaw = DeclareLaunchArgument("yaw", default_value="-1.570796", description="Spawn Yaw coordinate")
 
     bringup_launch_path = os.path.join(
         get_package_share_directory("valtoryn_bringup"), "launch", "sim_bringup.launch.py"

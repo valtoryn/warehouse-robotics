@@ -321,7 +321,8 @@ class GenUrdfTests(unittest.TestCase):
         # Check wheel friction elements
         gz_wheel = urdf.find(".//gazebo[@reference='wheel_fl_link']")
         self.assertIsNotNone(gz_wheel)
-        self.assertEqual(gz_wheel.find("mu1").text, "1.0")
+        self.assertEqual(gz_wheel.find("mu1").text, "0.8")
+        self.assertEqual(gz_wheel.find("mu2").text, "0.05")
 
     def test_missing_chassis_fails(self):
         config = {"robot": {"id": "x", "variant": "v"}, "modules": [], "target": {}}

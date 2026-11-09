@@ -172,7 +172,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("x_pose", default_value="-7.0", description="Spawn X coordinate (meters)"),
         DeclareLaunchArgument("y_pose", default_value="4.0", description="Spawn Y coordinate (meters)"),
         DeclareLaunchArgument("z_pose", default_value="0.10", description="Spawn Z coordinate (meters)"),
-        DeclareLaunchArgument("yaw", default_value="0.0", description="Spawn Yaw orientation (radians)"),
+        DeclareLaunchArgument("yaw", default_value="-1.570796", description="Spawn Yaw orientation (radians)"),
         DeclareLaunchArgument("urdf_path", default_value="", description="Path to generated URDF description"),
         DeclareLaunchArgument("controllers_file", default_value=default_controllers, description="Path to controllers YAML"),
         OpaqueFunction(function=launch_setup),

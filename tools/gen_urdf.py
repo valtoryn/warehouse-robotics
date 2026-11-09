@@ -213,11 +213,12 @@ def generate(
             ET.SubElement(range_el, "resolution").text = "0.01"
 
     # Wheel contact physics in Gazebo (surface friction)
+    # Low lateral friction (mu2 = 0.05) allows 4-wheel skid-steer AMR to turn smoothly in place
     if backend == "gazebo":
         for suffix in WHEEL_POSITIONS:
             gz_wheel = ET.SubElement(robot, "gazebo", reference=f"wheel_{suffix}_link")
-            ET.SubElement(gz_wheel, "mu1").text = "1.0"
-            ET.SubElement(gz_wheel, "mu2").text = "1.0"
+            ET.SubElement(gz_wheel, "mu1").text = "0.8"
+            ET.SubElement(gz_wheel, "mu2").text = "0.05"
             ET.SubElement(gz_wheel, "kp").text = "1000000.0"
             ET.SubElement(gz_wheel, "kd").text = "10.0"
 
