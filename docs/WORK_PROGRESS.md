@@ -80,6 +80,14 @@
 - `python tools/simulate_kinematics.py config/robots/ref-amr-diff-v1.yaml`: OK (trajectory closure error: 0.002253 m).
 - `python -m unittest discover -s tests -p "test_*.py"`: 68 tests discovered (53 passed offline, 15 skipped pending live ROS 2 host runtime).
 - `python tools/run_spike.py`: Correctly identifies Windows host missing Linux/ROS 2 prerequisites (exit code 2) and reports Docker container execution instructions without fabricating results.
+- **GitHub Actions CI Run #42677245021 (`ros-jazzy-build-and-test`): PASSED:**
+  - Stage 1: Preflight checks passed.
+  - Stage 2: All 4 ROS 2 packages (`valtoryn_interfaces`, `valtoryn_diff_drive`, `valtoryn_lifecycle`, `valtoryn_task_bt`) built via `colcon` in 16.1s.
+  - Stage 3: Artifact generation succeeded (`spike_robot.urdf`, `controllers.yaml`, `nav2.yaml`, launch scripts).
+  - Stage 4: Reference AMR mock robot bringup succeeded; active topics (`/diff_drive_controller/odom`, `/joint_states`, `/robot_description`, `/tf`) and active controllers (`joint_state_broadcaster`, `diff_drive_controller`) verified.
+  - Stage 5: Hardware interface exports and claims verified across all 4 wheel joints.
+  - Stage 6: Motion command response (`TwistStamped`) and odometry displacement feedback verified.
+  - Stage 7: Automated ROS 2 integration tests (15 tests total across `test_ros_lifecycle.py` and `test_ros_motion.py`) passed in 11.8s. Gate G-C Integration Spike Passed.
 
 ## Commits and pushes
 
@@ -100,8 +108,7 @@
   - `fc90ea3` test(ros): expand live lifecycle tests and refine motion test assertions
   - `dea894d` docs: record run 11 root cause fix and bringup resolution in progress checkpoint
   - `d7129b1` fix(bringup): parse tabular controller and interface status in spike runner and integration tests
-- New commits staged for publishing:
-  - `docs: update work progress checkpoint with controller status parsing fix`
+  - `5486821` docs: update work progress checkpoint with controller status parsing fix
 
 ## Remaining work
 
@@ -111,4 +118,4 @@
 
 ## Exact next action
 
-Stage, commit, and push the tabular controller status parsing fix in `tools/run_spike.py` and `tests/test_ros_motion.py`. Monitor CI run.
+Begin Phase 3: create minimal reference warehouse SDF simulation world in `worlds/` or `assets/` and integrate with reference AMR.
