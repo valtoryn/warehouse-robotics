@@ -298,9 +298,12 @@ class RosWarehouseNavigationTests(unittest.TestCase):
             pos_error = math.hypot(curr_x - target_x, curr_y - target_y)
             yaw_error = abs(normalize_angle_diff(curr_yaw, target_yaw))
         elif self.latest_odom is not None:
-            # Fallback relative displacement from spawn (-7.0, 4.0)
-            curr_x = -7.0 + self.latest_odom.pose.pose.position.x
-            curr_y = 4.0 + self.latest_odom.pose.pose.position.y
+            # Fallback relative displacement from spawn (-7.0, 4.0, yaw=-1.570796)
+            spawn_yaw = -1.570796
+            ox = self.latest_odom.pose.pose.position.x
+            oy = self.latest_odom.pose.pose.position.y
+            curr_x = -7.0 + ox * math.cos(spawn_yaw) - oy * math.sin(spawn_yaw)
+            curr_y = 4.0 + ox * math.sin(spawn_yaw) + oy * math.cos(spawn_yaw)
             pos_error = math.hypot(curr_x - target_x, curr_y - target_y)
             yaw_error = 0.0
         else:
