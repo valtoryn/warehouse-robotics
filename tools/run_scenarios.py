@@ -149,7 +149,11 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 180) -> bool:
 
         if not ready:
             print("WARNING: Timed out waiting for /navigate_to_pose action server.")
-            print(f"Check simulation log at {sim_log}")
+            if sim_log.exists():
+                print("--- LAST 50 LINES OF SIMULATION LOG ---")
+                lines = sim_log.read_text(encoding="utf-8", errors="replace").splitlines()
+                print("\n".join(lines[-50:]))
+                print("--- END SIMULATION LOG ---")
 
     scenarios = [
         {"id": "scenario_1_straight_aisle", "name": "Straight Aisle Navigation", "target": [-3.0, 4.0, 0.0]},

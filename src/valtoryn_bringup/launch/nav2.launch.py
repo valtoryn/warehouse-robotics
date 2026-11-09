@@ -17,7 +17,7 @@ from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDesc
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+from launch_ros.actions import Node, SetRemap
 
 
 def find_file(relative_path: str) -> str:
@@ -50,31 +50,28 @@ def generate_launch_description() -> LaunchDescription:
     declare_sim_time = DeclareLaunchArgument("use_sim_time", default_value="True", description="Use simulation clock")
     declare_autostart = DeclareLaunchArgument("autostart", default_value="True", description="Automatically startup Nav2 stack")
     declare_col_monitor = DeclareLaunchArgument(
-        "use_collision_monitor", default_value="False",
+        "use_collision_monitor", default_value="True",
         description="Launch Nav2 collision monitor using /scan"
     )
 
-    # Standard Nav2 bringup launch
-    nav2_bringup = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory("nav2_bringup"), "launch", "bringup_launch.py")
-        ),
-        launch_arguments={
-            "map": map_yaml,
-            "params_file": params_file,
-            "use_sim_time": use_sim_time,
-            "autostart": autostart,
-        }.items(),
-    )
-
-    # Optional Collision Monitor node
-    collision_monitor_node = Node(
-        package="nav2_collision_monitor",
-        executable="collision_monitor",
-        name="collision_monitor",
-        output="screen",
-        parameters=[default_col_params, {"use_sim_time": use_sim_time}],
-        condition=IfCondition(use_collision_monitor),
+    # Standard Nav2 bringup launch with topic remapping to differential drive controller
+    nav2_bringup = GroupAction(
+        actions=[
+            SetRemap(src="/cmd_vel", dst="/diff_drive_controller/cmd_vel"),
+            SetRemap(src="cmd_vel", dst="/diff_drive_controller/cmd_vel"),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    os.path.join(get_package_share_directory("nav2_bringup"), "launch", "bringup_launch.py")
+                ),
+                launch_arguments={
+                    "map": map_yaml,
+                    "params_file": params_file,
+                    "use_sim_time": use_sim_time,
+                    "autostart": autostart,
+                    "use_collision_monitor": use_collision_monitor,
+                }.items(),
+            ),
+        ]
     )
 
     return LaunchDescription([
@@ -84,6 +81,5 @@ def generate_launch_description() -> LaunchDescription:
         declare_autostart,
         declare_col_monitor,
         nav2_bringup,
-        collision_monitor_node,
     ])
 
