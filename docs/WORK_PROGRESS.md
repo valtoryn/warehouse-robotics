@@ -40,7 +40,52 @@
   - Upgraded `tools/run_spike.py` to a 7-stage pipeline with safe log capture to `launch.log`, early process exit/crash detection, and automated log dumping on failures.
   - Updated GitHub Actions workflow (`.github/workflows/checks.yml`) to add a containerized `ros-jazzy-build-and-test` job running in `osrf/ros:jazzy-desktop`, compiling all packages and executing the integration spike.
 
+- **Phase 3 Autonomous Warehouse Simulation Implementation:**
+  - **Simulator Pairing Resolution:** Verified and confirmed official `ros_gz` compatibility. ROS 2 Jazzy Jalisco on Ubuntu 24.04 LTS natively targets **Gazebo Harmonic (gz-sim 8)**, supported to May 2029. Corrected stale Jetty references across `docs/architecture/TECHNOLOGY_DECISIONS.md`, `docs/engineering/DEPENDENCY_MATRIX.md`, `docs/engineering/SIMULATION_REQUIREMENTS.md`, and `docs/engineering/DEVELOPMENT_ROADMAP.md`.
+  - **`ros2_control` 4.x API Modernization:** Resolved `on_init(const HardwareInfo &)` deprecation warning in `src/valtoryn_diff_drive/` by updating to `CallbackReturn on_init(const hardware_interface::HardwareComponentInterfaceParams & params)` with `<hardware_interface/types/hardware_component_interface_params.hpp>`.
+  - **2D Navigation LiDAR Module:** Created `modules/com.valtoryn.sensor.lidar_2d/manifest.yaml` declaring `/scan`, `sensor_deck` mount, `laser_link` and `laser_frame` TF conventions. Added module to `config/robots/ref-amr-diff-v1.yaml` at pose `[0.28, 0.0, 0.22]`.
+  - **Physics & Sensor URDF Generation:** Enhanced `tools/gen_urdf.py` to generate sensor links, visuals, collisions, Gazebo Harmonic `gpu_lidar` sensor tags with `ogre2` rendering engine, and wheel contact surface friction parameters (`mu1`, `mu2`, `kp`, `kd`) for accurate physics simulation.
+  - **Authored Warehouse Simulation World (`worlds/warehouse.sdf`):** Built a 20m × 16m warehouse environment featuring perimeter walls, concrete floor, 4 storage rack rows creating 3 longitudinal corridors and 2 lateral transit cross-aisles, 4 pick/drop stations, static pallet stacks, dynamic obstacle with velocity control, and Gazebo Harmonic physics and sensor system plugins.
+  - **Occupancy Grid Mapping:** Created `tools/gen_map.py` to generate high-resolution warehouse map (`maps/warehouse_map.pgm` and `maps/warehouse_map.yaml` at 0.05m/cell).
+  - **Simulation Bringup Package (`valtoryn_bringup`):** Created a new ROS 2 package containing:
+    - `sim_bringup.launch.py`: launches Gazebo Harmonic, spawns reference AMR, bridges `/clock` and `/scan`, activates `joint_state_broadcaster` and `diff_drive_controller`.
+    - `nav2.launch.py` and `slam.launch.py`: Nav2 bringup with AMCL localization, Regulated Pure Pursuit controller, Smac2D and Navfn planners, local/global costmaps with `/scan` obstacle layers, and collision monitor.
+    - `warehouse_sim.launch.py`: composable top-level simulation launch file.
+  - **Executable Behavior Tree & Stubs (`valtoryn_task_bt`):** Implemented C++ action client `NavigateToPoseAction` and explicit non-functional material-handling stubs `PayloadPickStub` and `PayloadDropStub` (ensuring unverified hardware claims are never made), `DockRobotStub`, executable node `valtoryn_task_executor`, and route mission XML `warehouse_route_mission.xml`.
+  - **Scenario Verification Runner & Tests:**
+    - `tests/test_ros_navigation.py`: 7 automated ROS integration tests for sensor validity, clock, costmap obstacle marking, straight corridor driving, 90-degree turning, static obstacle avoidance, and multi-waypoint missions.
+    - `tools/run_scenarios.py`: 4-stage automated scenario runner with preflight detection, artifact generation, simulation lifecycle management, metric tracking, and JSON report generation (`generated/scenario_report.json`).
+  - **CI Workflow Expansion:** Added `ros-jazzy-behaviortree-cpp` to `ros-jazzy-build-and-test`, and added dedicated containerized `gazebo-harmonic-nav2-simulation` job in `.github/workflows/checks.yml` running headless Gazebo Harmonic + Nav2 simulations and uploading scenario metrics artifacts.
+
 ## Files created or modified
+
+- `README.md` (updated evidence taxonomy and Phase 3 simulation baseline)
+- `docs/ARCHITECTURE_MILESTONE_REPORT.md` (updated with implementation addendum)
+- `docs/architecture/HARDWARE_ABSTRACTION.md` (documented backend architecture and fail-closed safety)
+- `docs/architecture/TECHNOLOGY_DECISIONS.md` (aligned active baseline on Jazzy Jalisco and Gazebo Harmonic)
+- `docs/engineering/DEVELOPMENT_ROADMAP.md` (updated Phase 3 deliverables and completed status)
+- `docs/engineering/DECISION_GATES.md` (updated with full evidence and options)
+- `docs/engineering/DEPENDENCY_MATRIX.md` (updated driver, Gazebo Harmonic, and Nav2 rows)
+- `docs/engineering/SIMULATION_REQUIREMENTS.md` (updated Gazebo Harmonic pairing and simulation targets)
+- `docs/WORK_PROGRESS.md` (this checkpoint)
+- `config/robots/ref-amr-diff-v1.yaml` (added 2D LiDAR module and pose)
+- `modules/com.valtoryn.sensor.lidar_2d/manifest.yaml` (declared 2D navigation LiDAR module)
+- `worlds/warehouse.sdf` (authored warehouse world for Gazebo Harmonic)
+- `maps/warehouse_map.pgm` & `maps/warehouse_map.yaml` (generated warehouse occupancy grid map)
+- `tools/gen_map.py` (tool for generating warehouse occupancy grid map)
+- `tools/gen_urdf.py` (added sensor generation, Gazebo gpu_lidar, and wheel friction physics)
+- `tools/run_scenarios.py` (automated scenario verification runner)
+- `src/valtoryn_diff_drive/include/valtoryn_diff_drive/diff_drive_hardware.hpp` (on_init Jazzy API fix)
+- `src/valtoryn_diff_drive/src/diff_drive_hardware.cpp` (on_init Jazzy API fix)
+- `src/valtoryn_bringup/` (new ROS 2 package: launch, configs, maps, worlds)
+- `src/valtoryn_task_bt/include/valtoryn_task_bt/` (nav2_client_node, payload_stubs, dock_robot_stub headers)
+- `src/valtoryn_task_bt/src/` (nav2_client_node, task_executor_node implementation)
+- `src/valtoryn_task_bt/bt/ref_amr_mission.xml` (updated with explicit stubs)
+- `src/valtoryn_task_bt/bt/warehouse_route_mission.xml` (multi-station warehouse route mission)
+- `src/valtoryn_task_bt/CMakeLists.txt` & `package.xml` (built library and executable with behaviortree_cpp and nav2_msgs)
+- `tests/test_ros_navigation.py` (automated ROS 2 / Nav2 navigation tests)
+- `tests/test_tools.py` (unit tests for sensor URDF generation and Gazebo friction)
+- `.github/workflows/checks.yml` (added gazebo-harmonic-nav2-simulation job)
 
 - `README.md` (updated evidence taxonomy and implementation baseline)
 - `docs/ARCHITECTURE_MILESTONE_REPORT.md` (updated with implementation addendum)
@@ -114,8 +159,8 @@
 
 - **Owner Decision on Distro Pin:** Confirm choice between Option 1 (Jazzy Jalisco on Ubuntu 24.04 LTS, recommended) and Option 2/3.
 - **Phase 1 Leftovers:** Physical floor survey (G-F) upon site access.
-- **Phase 3 Bring-up:** Author reference warehouse SDF world and configure Nav2 bringup launch pipeline for simulated AMR.
+- **Phase 4 Fleet Coordination:** Author facility model, graph exporters, and multi-robot coordination baseline in simulation.
 
 ## Exact next action
 
-Begin Phase 3: create minimal reference warehouse SDF simulation world in `worlds/` or `assets/` and integrate with reference AMR.
+Verify Phase 3 CI workflow run on GitHub Actions (`checks-and-ros-build`), reviewing both `ros-jazzy-build-and-test` and `gazebo-harmonic-nav2-simulation` jobs.

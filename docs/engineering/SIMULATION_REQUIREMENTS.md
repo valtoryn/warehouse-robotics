@@ -16,7 +16,7 @@ physical testing.
 
 | ID | Requirement | Basis |
 |---|---|---|
-| SR-1 | Default simulator: Gazebo Jetty (LTS) via `ros_gz` + `gz_ros2_control`, paired with the pinned ROS 2 distro | R04 §4.1, R05 §4 [REC] |
+| SR-1 | Default simulator: Gazebo Harmonic (gz-sim 8, LTS to May 2029) via `ros_gz` + `gz_ros2_control`, paired with ROS 2 Jazzy Jalisco | R04 §4.1, R05 §4 [REC] |
 | SR-2 | The same robot configuration (URDF + `<ros2_control>`) drives sim and hardware; only the hardware-plugin backend differs | FR-S1, R05 §5.1 |
 | SR-3 | Headless CI operation: `gz sim -s`, `--iterations`, `--seed`, `--headless-rendering`; record/playback via `--record` | R05 §3.11 [FACT R05-S30] |
 | SR-4 | Physics engine: DART default; a second engine run as model-form sensitivity check once scenarios exist | R05 §3.1 [FACT R05-S01] |

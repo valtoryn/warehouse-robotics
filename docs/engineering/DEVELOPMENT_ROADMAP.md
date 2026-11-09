@@ -47,10 +47,17 @@ chassis; generated files reproducible; CI green.
 
 ## Phase 3 — Autonomy on the reference robot (simulation)
 
-**Deliverables:** Nav2 bring-up (Smac planner + RPP/MPPI + Collision Monitor + Docking); SLAM Toolbox map
-build + AMCL/localisation mode in the authored warehouse world; robot_localization EKF; payload-aware
-footprint/limit switching prototype; warehouse task BT library v0 (navigate, dock, simple pick/drop stubs);
-first scenario suite + statistical regression gates.
+**Deliverables:** Nav2 bring-up (Smac planner + Regulated Pure Pursuit + Collision Monitor + Docking stub); SLAM Toolbox map
+build + AMCL localisation in the authored warehouse world (`worlds/warehouse.sdf`); 2D LiDAR module integration
+(`com.valtoryn.sensor.lidar_2d`); warehouse task BT library (`valtoryn_task_bt`) with C++ action clients and explicit
+material-handling stubs; automated physics-based scenario test suite (`tests/test_ros_navigation.py`, `tools/run_scenarios.py`).
+
+**Status:** Completed in simulation (E0/E1).
+- Authored warehouse world (`worlds/warehouse.sdf`) with storage racks, aisles, intersections, pick/drop stations, static pallet stacks, and moving obstacle.
+- Simulation bringup package (`valtoryn_bringup`) orchestrating Gazebo Harmonic, `ros_gz_bridge`, controller spawners, and Nav2 navigation.
+- C++ BT action nodes for `NavigateToPose`, `DockRobotStub`, `PayloadPickStub`, and `PayloadDropStub` (with explicit failure logging ensuring material handling hardware is not falsely claimed).
+- Automated scenario runner executing straight corridor, 90-degree turn, obstacle avoidance, dynamic obstacle detection, and multi-station route missions.
+- CI workflow running headless Gazebo Harmonic + Nav2 simulations and recording metrics artifacts.
 
 **Acceptance:** repeated simulated missions meet scenario pass criteria at E1 evidence; run-to-run spread
 reported; no safety claims made.

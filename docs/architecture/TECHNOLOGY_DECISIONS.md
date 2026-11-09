@@ -14,7 +14,7 @@
 | TD-4 | Nav2 as navigation stack behind Valtoryn interface | **Proposed — adopt** | Multi-kinematics, funded maintainer, plugin model; R01 §3, R06 §8.1 |
 | TD-5 | SLAM Toolbox + AMCL/robot_localization for localisation | **Proposed — adopt, keep swappable** | R04 §4.1, R06 §8.5 |
 | TD-6 | BehaviorTree.CPP for task orchestration | **Proposed — adopt** | Nav2 precedent; R01 §8 |
-| TD-7 | Gazebo Jetty + ros_gz + gz_ros2_control as default simulator | **Proposed — adopt** | Only ROS-paired LTS; R04 §2.5, R05 §4 |
+| TD-7 | Gazebo Harmonic + ros_gz + gz_ros2_control as default simulator | **Proposed — adopt** | Official ROS Jazzy paired LTS; R04 §2.5, R05 §4 |
 | TD-8 | Fast DDS (`rmw_fastrtps_cpp`) default RMW; Zenoh spike | **Proposed — adopt w/ spike** | Default best-supported; Zenoh Tier 1 for fleet scale; R04 §2.7, §4.6 |
 | TD-9 | VDA 5050 v3 as external fleet protocol only | **Proposed — adopt spec, build gateway** | R01 §5.3, R07 §4.3 |
 | TD-10 | Open-RMF as optional backend, never core | **Proposed — adopt position** | R01 §5.1, R07 §4.3 |
@@ -50,8 +50,8 @@
 |---|---|---|
 | G-A | Onboard compute BSP supports Ubuntu 26.04 (or container+RT host kernel) | Compute selection workstream |
 | G-B | Released Lyrical drivers for chosen LiDAR/IMU/motor drives/cameras | Driver survey |
-| G-C | One-week Lyrical/Jetty spike: diff_drive + Nav2 (MPPI/Smac/CollisionMonitor/Docking) + slam_toolbox | Simulation workstream |
-| G-D | `ros2_control` Lyrical re-verification of static-hardware claims | Architecture |
+| G-C | ROS 2 Jazzy integration spike & Gazebo Harmonic simulation: diff_drive + Nav2 + slam_toolbox | Simulation workstream |
+| G-D | `ros2_control` Jazzy re-verification of static-hardware claims | Architecture |
 | G-E | `vda5050_core` (or alternative) v3.0 capability assessment | Fleet workstream |
 | G-F | Concrete-floor `Crr`, wheel derating, caster resistance | Supplier data / measurement |
 
@@ -59,10 +59,10 @@
 
 | Component | Version | Constraint |
 |---|---|---|
-| ROS 2 | Lyrical Luth (fallback Jazzy) | One LTS line per release; pin distro+Gazebo+ros_gz as a unit |
-| Gazebo | Jetty (LTS to May 2031) | Pairs with Lyrical via packages.ros.org |
-| ros2_control / ros2_controllers | 6.x on Lyrical | TwistStamped cmd_vel |
-| Nav2 | 1.5.x on Lyrical | Per-distro plugin branches; `nav2_ros_common` types |
+| ROS 2 | Jazzy Jalisco (active baseline; LTS to May 2029) | One LTS line per release; pin distro+Gazebo+ros_gz as a unit |
+| Gazebo | Harmonic (gz-sim 8, LTS to May 2029) | Pairs natively with Jazzy on Ubuntu 24.04 LTS via packages.ros.org |
+| ros2_control / ros2_controllers | 4.x on Jazzy | TwistStamped cmd_vel; HardwareComponentInterfaceParams on_init |
+| Nav2 | Jazzy release | Regulated Pure Pursuit, Smac2D, Navfn, AMCL, Collision Monitor |
 | slam_toolbox | 2.10.x | LGPL-2.1 — BOM tracking required |
 | robot_localization | 3.11.x | Apache-2.0 |
 | RMW | rmw_fastrtps_cpp default; rmw_zenoh_cpp spike | Never mix RMWs in one system |

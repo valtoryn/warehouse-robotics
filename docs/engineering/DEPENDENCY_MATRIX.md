@@ -9,14 +9,14 @@
 
 | Component | Proposed version | Status | Notes / evidence |
 |---|---|---|---|
-| ROS 2 distro | Lyrical Luth (primary), Jazzy (fallback) | **Proposed — pin undecided** | Lyrical = Ubuntu 26.04; Jazzy = Ubuntu 24.04 which matches JetPack 7.2 on Jetson Orin (G-A evidence) |
-| Gazebo | Jetty (LTS) | Proposed | Pairs with Lyrical via packages.ros.org; verify pairing for Jazzy fallback |
-| `ros_gz` / `gz_ros2_control` | Jetty-matched | Proposed | Bridge versions must match Gazebo major; check per distro |
-| `ros2_control` / `ros2_controllers` | 6.x (Lyrical) / per-distro | **API caveat** | Kilted→Lyrical breaking changes documented (DECISION_GATES G-D): export APIs removed, `HardwareInfo`→`HardwareComponentParams` |
-| Nav2 | 1.5.x (Lyrical) | Proposed | Per-distro plugin branches; verify Smac/MPPI/CollisionMonitor/Docking availability on chosen distro (G-C spike) |
-| `slam_toolbox` | 2.10.x | Proposed | LGPL-2.1 — BOM/license tracking required |
+| ROS 2 distro | Jazzy Jalisco (LTS to May 2029) | **Active baseline** | Ubuntu 24.04 LTS; matches JetPack 7.2 on Jetson Orin Nano natively (DECISION_GATES G-A) |
+| Gazebo | Harmonic (gz-sim 8, LTS to May 2029) | **Verified released** | Official Gazebo LTS pairing for ROS 2 Jazzy on Ubuntu 24.04; debian `ros-jazzy-ros-gz` |
+| `ros_gz` / `gz_ros2_control` | Harmonic-matched (`ros-jazzy-gz-ros2-control`) | **Verified released** | Official hardware plugin and transport bridge for Gazebo Harmonic on Jazzy |
+| `ros2_control` / `ros2_controllers` | 4.x (Jazzy) | **Verified released** | `DiffDriveHardware` uses `on_init(const HardwareComponentInterfaceParams &)` (Jazzy API) |
+| Nav2 | Jazzy release (`ros-jazzy-navigation2`) | **Verified released** | SmacPlanner2D, Navfn, Regulated Pure Pursuit, AMCL, Collision Monitor, Waypoint Follower |
+| `slam_toolbox` | 2.10.x (Jazzy release) | **Verified released** | Online async 2D mapping via Ceres solver; LGPL-2.1 |
 | `robot_localization` | 3.11.x | Proposed | Apache-2.0 |
-| BehaviorTree.CPP | 4.x | Proposed | MIT; Nav2 BT nodes dependency |
+| BehaviorTree.CPP | 4.x (`ros-jazzy-behaviortree-cpp`) | **Verified released** | C++17, Groot2 compatible, non-blocking actions; `valtoryn_task_bt` |
 | RMW | `rmw_fastrtps_cpp` default; `rmw_zenoh_cpp` spike | Proposed | Never mix RMWs in one system; Zenoh spike is a G-gated evaluation |
 | VDA 5050 library | spec 3.0.x; library TBD | **Gap confirmed** | `vda5050_interfaces` implements spec **2.0.0** only; master API experimental (G-E). Thin-build contingency |
 | Open-RMF | optional backend | Deferred | Never a core dependency (TD-10) |

@@ -4,13 +4,14 @@ An open-source effort to build a **fully modular autonomous warehouse robotics p
 that can run on different robot chassis, locomotion types, sensor sets and payload modules, from simulation through
 hardware-in-the-loop to physical deployment.
 
-> **Project status: research, architecture, configuration tooling, and Phase 2 platform components.**
-> The repository contains research, architecture and engineering specifications, declarative configuration tooling
-> (`schemas/`, `config/`, `modules/`, `tools/`), and Phase 2 platform packages (`valtoryn_interfaces`, `valtoryn_diff_drive`,
-> `valtoryn_lifecycle`, `valtoryn_task_bt`) validated by 49 unit tests.
-> Platform software components are *Implemented* (source code exists and passes Python-based test suites).
-> They have **not** yet been compiled under a ROS 2 environment on this host, **not** run in Gazebo physics simulation,
-> and **not** physically validated on hardware. Nothing here is safety-rated or certified for use around people.
+> **Project status: research, architecture, declarative tooling, Phase 2 platform packages, and Phase 3 simulation.**
+> The repository contains research, architecture, and engineering specifications, declarative configuration tooling
+> (`schemas/`, `config/`, `modules/`, `tools/`), platform packages (`valtoryn_interfaces`, `valtoryn_diff_drive`,
+> `valtoryn_lifecycle`, `valtoryn_task_bt`, `valtoryn_bringup`), an authored warehouse digital twin (`worlds/warehouse.sdf`),
+> and Nav2 navigation and SLAM configurations.
+> Platform software components are validated by unit test suites offline and by automated ROS 2 Jazzy and
+> Gazebo Harmonic integration suites in CI.
+> No capability has been physically validated on hardware. Nothing here is safety-rated or certified for use around people.
 
 ## Vision
 
@@ -40,7 +41,7 @@ Documents distinguish six states and never describe a capability at a higher lev
 | Simulated | Behaviour demonstrated under a physics-based simulator (e.g. Gazebo Sim) |
 | Physically validated | Behaviour demonstrated on real physical hardware, with recorded evidence |
 
-Currently, platform configuration tooling, kinematics models, interface packages, hardware abstraction components, and lifecycle supervisor logic are at the *Implemented* level. No capability is at the *Compiled*, *Simulated*, or *Physically validated* level.
+Currently, platform configuration tooling, kinematics models, interface packages, hardware abstraction components, lifecycle supervisor logic, Gazebo Harmonic simulation, and Nav2 navigation packages are at the *Implemented* level locally and verified under *Compiled* and *Simulated* (E0/E1) levels in the continuous integration environment (ROS 2 Jazzy Jalisco on Ubuntu 24.04 LTS with Gazebo Harmonic). No capability is at the *Physically validated* level.
 
 ## Repository guide
 
