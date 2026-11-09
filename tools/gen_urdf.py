@@ -62,7 +62,11 @@ def cylinder_geom(parent: ET.Element, radius: float, length: float):
     ET.SubElement(cc, "cylinder", radius=fmt(radius), length=fmt(length))
 
 
-def generate(config: dict, backend_override: str | None = None) -> ET.Element:
+def generate(
+    config: dict,
+    backend_override: str | None = None,
+    controllers_file: str | None = None,
+) -> ET.Element:
     robot = ET.Element("robot", name=config["robot"]["id"])
 
     # Materials
@@ -142,6 +146,81 @@ def generate(config: dict, backend_override: str | None = None) -> ET.Element:
         ET.SubElement(j, "state_interface", name="position")
         ET.SubElement(j, "state_interface", name="velocity")
 
+    # Sensor modules (e.g. 2D navigation LiDAR)
+    sensor_mods = [
+        m for m in config.get("modules", [])
+        if "sensor" in m.get("type", "") or "lidar" in m.get("type", "")
+    ]
+    for sm in sensor_mods:
+        sp = sm.get("parameters", {})
+        frame_id = sp.get("frame_id", "laser_link")
+        parent_frame = sm.get("parent_frame", "base_link")
+        pose_xyz = sm.get("pose", {}).get("xyz", [0.28, 0.0, 0.22])
+        pose_rpy = sm.get("pose", {}).get("rpy", [0.0, 0.0, 0.0])
+        topic = sp.get("topic", "/scan").lstrip("/")
+        update_rate = sp.get("update_rate", 10.0)
+        min_range = sp.get("min_range", 0.1)
+        max_range = sp.get("max_range", 12.0)
+        samples = sp.get("samples", 360)
+
+        # Sensor link
+        s_link = ET.SubElement(robot, "link", name=frame_id)
+        s_vis = ET.SubElement(s_link, "visual")
+        ET.SubElement(s_vis, "origin", xyz="0 0 0", rpy="0 0 0")
+        s_geom = ET.SubElement(s_vis, "geometry")
+        ET.SubElement(s_geom, "cylinder", radius="0.04", length="0.04")
+        ET.SubElement(s_vis, "material", name="valtoryn_dark")
+        s_col = ET.SubElement(s_link, "collision")
+        ET.SubElement(s_col, "origin", xyz="0 0 0", rpy="0 0 0")
+        s_col_geom = ET.SubElement(s_col, "geometry")
+        ET.SubElement(s_col_geom, "cylinder", radius="0.04", length="0.04")
+        inertial_mass_xml(s_link, mass=0.2, ix=0.0001, iy=0.0001, iz=0.0001)
+
+        # Fixed joint from parent_frame to sensor link
+        s_joint = ET.SubElement(robot, "joint", name=f"{frame_id}_joint", type="fixed")
+        ET.SubElement(s_joint, "parent", link=parent_frame)
+        ET.SubElement(s_joint, "child", link=frame_id)
+        ET.SubElement(
+            s_joint, "origin",
+            xyz=f"{fmt(pose_xyz[0])} {fmt(pose_xyz[1])} {fmt(pose_xyz[2])}",
+            rpy=f"{fmt(pose_rpy[0])} {fmt(pose_rpy[1])} {fmt(pose_rpy[2])}",
+        )
+
+        # Gazebo GPU LiDAR sensor configuration
+        if backend == "gazebo":
+            gz_ref = ET.SubElement(robot, "gazebo", reference=frame_id)
+            gz_sensor = ET.SubElement(gz_ref, "sensor", name="gpu_lidar", type="gpu_lidar")
+            ET.SubElement(gz_sensor, "pose").text = "0 0 0 0 0 0"
+            ET.SubElement(gz_sensor, "update_rate").text = str(fmt(update_rate))
+            ET.SubElement(gz_sensor, "visualize").text = "false"
+            ET.SubElement(gz_sensor, "topic").text = topic
+            ET.SubElement(gz_sensor, "gz_frame_id").text = frame_id
+            lidar_el = ET.SubElement(gz_sensor, "lidar")
+            scan_el = ET.SubElement(lidar_el, "scan")
+            h_scan = ET.SubElement(scan_el, "horizontal")
+            ET.SubElement(h_scan, "samples").text = str(samples)
+            ET.SubElement(h_scan, "resolution").text = "1"
+            ET.SubElement(h_scan, "min_angle").text = "-3.14159265"
+            ET.SubElement(h_scan, "max_angle").text = "3.14159265"
+            v_scan = ET.SubElement(scan_el, "vertical")
+            ET.SubElement(v_scan, "samples").text = "1"
+            ET.SubElement(v_scan, "resolution").text = "1"
+            ET.SubElement(v_scan, "min_angle").text = "0"
+            ET.SubElement(v_scan, "max_angle").text = "0"
+            range_el = ET.SubElement(lidar_el, "range")
+            ET.SubElement(range_el, "min").text = str(fmt(min_range))
+            ET.SubElement(range_el, "max").text = str(fmt(max_range))
+            ET.SubElement(range_el, "resolution").text = "0.01"
+
+    # Wheel contact physics in Gazebo (surface friction)
+    if backend == "gazebo":
+        for suffix in WHEEL_POSITIONS:
+            gz_wheel = ET.SubElement(robot, "gazebo", reference=f"wheel_{suffix}_link")
+            ET.SubElement(gz_wheel, "mu1").text = "1.0"
+            ET.SubElement(gz_wheel, "mu2").text = "1.0"
+            ET.SubElement(gz_wheel, "kp").text = "1000000.0"
+            ET.SubElement(gz_wheel, "kd").text = "10.0"
+
     # Gazebo system plugin is only attached for the gazebo simulation backend
     if backend == "gazebo":
         gz_plugin = ET.SubElement(robot, "gazebo")
@@ -152,7 +231,7 @@ def generate(config: dict, backend_override: str | None = None) -> ET.Element:
             name="gz_ros2_control::GazeboSimROS2ControlPlugin",
         )
         param_el = ET.SubElement(p_el, "parameters")
-        param_el.text = "$(find valtoryn_bringup)/config/controllers.yaml"
+        param_el.text = controllers_file or str(ROOT / "src" / "valtoryn_bringup" / "config" / "controllers.yaml")
 
     return robot
 
@@ -164,8 +243,9 @@ def main() -> int:
     cfg_path = Path(sys.argv[1])
     out = Path(sys.argv[sys.argv.index("--out") + 1]) if "--out" in sys.argv else None
     backend = sys.argv[sys.argv.index("--backend") + 1] if "--backend" in sys.argv else None
+    params = sys.argv[sys.argv.index("--params") + 1] if "--params" in sys.argv else None
     config = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
-    urdf = generate(config, backend_override=backend)
+    urdf = generate(config, backend_override=backend, controllers_file=params)
     ET.indent(urdf, space="  ")
     text = ET.tostring(urdf, encoding="unicode")
     text = '<?xml version="1.0"?>\n<!-- Generated by tools/gen_urdf.py from ' + cfg_path.name + \

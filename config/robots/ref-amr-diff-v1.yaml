@@ -39,6 +39,27 @@ modules:
       mount_type: "compute_tray"
       occupied_mounts: ["compute_bay_1"]
 
+  - type: "com.valtoryn.sensor.lidar_2d"
+    version: "^1.0.0"
+    instance: "nav_lidar"
+    parent_frame: "base_link"
+    pose:
+      xyz: [0.28, 0.0, 0.22]
+      rpy: [0.0, 0.0, 0.0]
+    parameters:
+      topic: "/scan"
+      frame_id: "laser_link"
+      update_rate: 10.0
+      min_range: 0.10
+      max_range: 12.0
+      samples: 360
+      min_angle: -3.14159265
+      max_angle: 3.14159265
+    safety_evidence: []
+    mount:
+      mount_type: "sensor_deck"
+      occupied_mounts: ["lidar_mount_front"]
+
 target:
   profile: "simulation"
   backend: "mock"

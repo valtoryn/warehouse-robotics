@@ -295,6 +295,34 @@ class GenUrdfTests(unittest.TestCase):
         gz_plugin = urdf.find(".//gazebo/plugin[@filename='gz_ros2_control-system']")
         self.assertIsNotNone(gz_plugin)
 
+    def test_lidar_sensor_generated(self):
+        config = yaml.safe_load(
+            (ROOT / "config/robots/ref-amr-diff-v1.yaml").read_text(encoding="utf-8")
+        )
+        urdf = gen_urdf.generate(config, backend_override="mock")
+        laser_link = urdf.find(".//link[@name='laser_link']")
+        self.assertIsNotNone(laser_link)
+        laser_joint = urdf.find(".//joint[@name='laser_link_joint']")
+        self.assertIsNotNone(laser_joint)
+        self.assertEqual(laser_joint.get("type"), "fixed")
+        self.assertEqual(laser_joint.find("parent").get("link"), "base_link")
+        self.assertEqual(laser_joint.find("child").get("link"), "laser_link")
+
+    def test_gazebo_sensor_and_friction_generated(self):
+        config = yaml.safe_load(
+            (ROOT / "config/robots/ref-amr-diff-v1.yaml").read_text(encoding="utf-8")
+        )
+        urdf = gen_urdf.generate(config, backend_override="gazebo")
+        gz_sensor = urdf.find(".//gazebo[@reference='laser_link']/sensor[@name='gpu_lidar']")
+        self.assertIsNotNone(gz_sensor)
+        self.assertEqual(gz_sensor.find("topic").text, "scan")
+        self.assertEqual(gz_sensor.find("gz_frame_id").text, "laser_link")
+
+        # Check wheel friction elements
+        gz_wheel = urdf.find(".//gazebo[@reference='wheel_fl_link']")
+        self.assertIsNotNone(gz_wheel)
+        self.assertEqual(gz_wheel.find("mu1").text, "1.0")
+
     def test_missing_chassis_fails(self):
         config = {"robot": {"id": "x", "variant": "v"}, "modules": [], "target": {}}
         with self.assertRaises(SystemExit):

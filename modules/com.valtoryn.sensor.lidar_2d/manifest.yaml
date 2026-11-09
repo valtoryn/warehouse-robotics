@@ -1,0 +1,53 @@
+# Module manifest — com.valtoryn.sensor.lidar_2d
+# 2D planar LiDAR sensor module declaration for navigation and mapping.
+# Provides 360-degree range scans on /scan. Not a certified safety sensor.
+
+manifest_schema_version: "1.0.0"
+module_type: "com.valtoryn.sensor.lidar_2d"
+module_version: "1.0.0"
+
+provides:
+  - kind: "ros_topic"
+    name: "/scan"
+    version_range: "^1.0"
+  - kind: "network"
+    name: "lidar_point_stream"
+
+requires:
+  - kind: "mechanical"
+    name: "sensor_deck"
+  - kind: "electrical"
+    name: "5V_power_bus"
+
+frames:
+  declared:
+    - "laser_link"
+    - "laser_frame"
+  mounts:
+    - mount_type: "sensor_deck"
+      occupied_mounts: ["lidar_mount_front"]
+
+hardware_identity:
+  vendor: "slamtec"
+  product: "sllidar_s2"
+  firmware_range: ">=1.0.0 <3.0.0"
+
+platform:
+  ros_distro: "jazzy"
+  rmw: "rmw_fastrtps_cpp"
+  dependencies:
+    - name: "ros_gz_bridge"
+      version_gte: "1.0"
+
+verification:
+  verified_by: "none"
+  verification_method: "simulation"
+  capabilities:
+    declared:
+      - "2d_planar_scanning"
+      - "nav2_costmap_clearing_marking"
+    verified: []
+
+safety:
+  evidence_ids: []
+  claim: "none"
