@@ -41,5 +41,6 @@ modules:
 
 target:
   profile: "simulation"
-  ros_distro: "lyrical"   # simulation host may use Lyrical; hardware target likely jazzy (G-A)
+  backend: "mock"
+  ros_distro: "jazzy"   # Standardized on Jazzy LTS (Ubuntu 24.04 ↔ JetPack 7.2 alignment)
   rmw: "rmw_fastrtps_cpp"

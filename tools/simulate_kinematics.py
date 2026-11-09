@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 """Differential drive AMR kinematics and simulation verification tool.
 
-Implements and validates the Chassis kinematics contract defined in
-docs/architecture/HARDWARE_ABSTRACTION.md section 3 and formulas from
-docs/engineering/REFERENCE_ROBOT_SPECIFICATION.md section 2:
+EVIDENCE TAXONOMY:
+  Mathematical kinematic model. This script verifies forward and inverse
+  differential drive equations, limit enforcement, and geometric integration.
+  It is NOT a physics-based simulator, Gazebo digital twin, or physical hardware test.
 
-Kinematics:
+SI Units Convention:
+  Linear distances: metres (m)
+  Angles: radians (rad)
+  Linear velocities: metres per second (m/s)
+  Angular velocities: radians per second (rad/s)
+  Time / steps: seconds (s)
+
+Kinematics Contract (docs/architecture/HARDWARE_ABSTRACTION.md section 3):
   v  = r * (uR + uL) / 2
   w  = r * (uR - uL) / (2d)
   uL = (v - d * w) / r
@@ -35,15 +43,24 @@ ROOT = Path(__file__).resolve().parent.parent
 
 @dataclass
 class DiffDriveParams:
-    wheel_radius: float
-    wheel_separation: float
-    max_linear_velocity: float
-    max_angular_velocity: float
-    max_wheel_velocity: float = 0.0
+    wheel_radius: float          # m
+    wheel_separation: float      # m
+    max_linear_velocity: float   # m/s
+    max_angular_velocity: float  # rad/s
+    max_wheel_velocity: float = 0.0  # rad/s
 
     def __post_init__(self):
+        if self.wheel_radius <= 0.0:
+            raise ValueError(f"wheel_radius must be positive, got {self.wheel_radius}")
+        if self.wheel_separation <= 0.0:
+            raise ValueError(f"wheel_separation must be positive, got {self.wheel_separation}")
+        if self.max_linear_velocity <= 0.0:
+            raise ValueError(f"max_linear_velocity must be positive, got {self.max_linear_velocity}")
+        if self.max_angular_velocity <= 0.0:
+            raise ValueError(f"max_angular_velocity must be positive, got {self.max_angular_velocity}")
+
         if self.max_wheel_velocity <= 0.0:
-            # Maximum angular velocity of wheel at top linear speed
+            # Maximum angular velocity of wheel at combined maximum linear and rotational speed
             self.max_wheel_velocity = (
                 self.max_linear_velocity + (self.wheel_separation / 2.0) * self.max_angular_velocity
             ) / self.wheel_radius
@@ -51,49 +68,82 @@ class DiffDriveParams:
 
 @dataclass
 class RobotPose:
-    x: float = 0.0
-    y: float = 0.0
-    theta: float = 0.0  # radians
+    x: float = 0.0       # m
+    y: float = 0.0       # m
+    theta: float = 0.0   # rad
 
 
 class DiffDriveSimulator:
     def __init__(self, params: DiffDriveParams):
         self.params = params
-        self.d = params.wheel_separation / 2.0
-        self.r = params.wheel_radius
+        self.d = params.wheel_separation / 2.0  # half track-width (m)
+        self.r = params.wheel_radius            # wheel radius (m)
         self.pose = RobotPose()
 
     def inverse_kinematics(self, v: float, w: float) -> tuple[float, float]:
-        """Convert linear velocity v and angular velocity w to left and right wheel speeds (rad/s)."""
-        # Clamp commanded velocities to parameters
-        v_clamped = max(-self.params.max_linear_velocity, min(self.params.max_linear_velocity, v))
-        w_clamped = max(-self.params.max_angular_velocity, min(self.params.max_angular_velocity, w))
+        """Convert linear velocity v (m/s) and angular velocity w (rad/s) to wheel speeds (rad/s).
 
-        ul = (v_clamped - self.d * w_clamped) / self.r
-        ur = (v_clamped + self.d * w_clamped) / self.r
+        Scales velocities proportionally to preserve the instantaneous radius of
+        curvature R = v / w when limits are exceeded.
+        """
+        if not math.isfinite(v) or not math.isfinite(w):
+            return (0.0, 0.0)
 
-        # Actuator limit scaling: preserve curvature if wheel speeds exceed maximum
+        # Scale body velocities proportionally if either exceeds limits to preserve curvature R = v / w
+        scale_v = self.params.max_linear_velocity / abs(v) if abs(v) > self.params.max_linear_velocity else 1.0
+        scale_w = self.params.max_angular_velocity / abs(w) if abs(w) > self.params.max_angular_velocity else 1.0
+        scale_body = min(scale_v, scale_w)
+
+        v_scaled = v * scale_body
+        w_scaled = w * scale_body
+
+        ul = (v_scaled - self.d * w_scaled) / self.r
+        ur = (v_scaled + self.d * w_scaled) / self.r
+
+        # Scale wheel speeds proportionally if either exceeds actuator limits,
+        # further preserving curvature
         max_req = max(abs(ul), abs(ur))
-        if max_req > self.params.max_wheel_velocity:
-            scale = self.params.max_wheel_velocity / max_req
-            ul *= scale
-            ur *= scale
+        if max_req > self.params.max_wheel_velocity and max_req > 1e-9:
+            scale_wheel = self.params.max_wheel_velocity / max_req
+            ul *= scale_wheel
+            ur *= scale_wheel
 
         return (ul, ur)
 
     def forward_kinematics(self, ul: float, ur: float) -> tuple[float, float]:
-        """Convert wheel speeds (rad/s) to body velocities (v, w)."""
+        """Convert wheel angular speeds (rad/s) to body velocities v (m/s) and w (rad/s)."""
+        if not math.isfinite(ul) or not math.isfinite(ur):
+            return (0.0, 0.0)
         v = self.r * (ur + ul) / 2.0
         w = self.r * (ur - ul) / (2.0 * self.d)
         return (v, w)
 
-    def step(self, v_cmd: float, w_cmd: float, dt: float, slip_factor: float = 1.0) -> RobotPose:
-        """Simulate one discrete step with arc integration."""
+    def step(
+        self,
+        v_cmd: float,
+        w_cmd: float,
+        dt: float,
+        left_slip: float = 1.0,
+        right_slip: float = 1.0,
+    ) -> RobotPose:
+        """Simulate one discrete step with exact arc integration.
+
+        Parameters:
+          v_cmd: Commanded linear velocity (m/s)
+          w_cmd: Commanded angular velocity (rad/s)
+          dt: Integration time step (s), must be > 0
+          left_slip: Left traction coefficient [0.0 = total slip, 1.0 = perfect traction]
+          right_slip: Right traction coefficient [0.0 = total slip, 1.0 = perfect traction]
+        """
+        if dt <= 0.0:
+            raise ValueError(f"Integration time step dt must be positive, got {dt}")
+        if not (0.0 <= left_slip <= 1.0 and 0.0 <= right_slip <= 1.0):
+            raise ValueError(f"Slip factors must be in range [0.0, 1.0], got ({left_slip}, {right_slip})")
+
         ul, ur = self.inverse_kinematics(v_cmd, w_cmd)
 
-        # Apply wheel slip if simulating imperfect traction
-        ul_actual = ul * slip_factor
-        ur_actual = ur * slip_factor
+        ul_actual = ul * left_slip
+        ur_actual = ur * right_slip
 
         v, w = self.forward_kinematics(ul_actual, ur_actual)
 
@@ -151,7 +201,6 @@ def run_mission_profile_sim(params: DiffDriveParams) -> tuple[RobotPose, float]:
             sim.step(0.0, w_turn, dt)
             total_time += dt
 
-    # Closure error distance
     closure_error = math.sqrt(sim.pose.x ** 2 + sim.pose.y ** 2)
     return (sim.pose, closure_error)
 

@@ -39,6 +39,11 @@
           "type": "string",
           "enum": ["simulation", "hardware", "hil"]
         },
+        "backend": {
+          "type": "string",
+          "enum": ["mock", "gazebo", "physical"],
+          "description": "Hardware abstraction execution backend: mock (software loopback), gazebo (physics sim via gz_ros2_control), or physical (real motor drives)."
+        },
         "ros_distro": { "type": "string", "minLength": 1 },
         "rmw": {
           "type": "string",

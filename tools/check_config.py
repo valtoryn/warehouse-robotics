@@ -213,6 +213,20 @@ def check_config(path: Path, config_schema: dict, manifest_schema: dict) -> list
                 f"is {config['target']['profile']} — cannot pass gate C3 on motion/safety paths"
             )
 
+    # Target profile and backend consistency check
+    target = config.get("target", {})
+    profile = target.get("profile")
+    backend = target.get("backend")
+    if backend:
+        if profile == "simulation" and backend == "physical":
+            errors.append(
+                f"{path.name}: target profile 'simulation' cannot use backend 'physical' (gate C1)"
+            )
+        elif profile == "hardware" and backend in ("mock", "gazebo"):
+            errors.append(
+                f"{path.name}: target profile 'hardware' cannot use simulation backend '{backend}' (gate C1)"
+            )
+
     return errors
 
     return errors
