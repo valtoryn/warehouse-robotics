@@ -117,7 +117,7 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 180) -> bool:
         launch_cmd = (
             f"source {setup_file} && "
             f"ros2 launch valtoryn_bringup warehouse_sim.launch.py "
-            f"headless:=true urdf_path:={urdf_file}"
+            f"headless:=True urdf_path:={urdf_file}"
         )
         sim_log_f = open(sim_log, "w", encoding="utf-8")
         sim_proc = subprocess.Popen(
@@ -132,6 +132,10 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 180) -> bool:
         while time.time() - start_wait < 45.0:
             if sim_proc.poll() is not None:
                 print(f"ERROR: Simulation launch process exited prematurely with code {sim_proc.returncode}")
+                if sim_log.exists():
+                    print("--- SIMULATION LAUNCH LOG ---")
+                    print(sim_log.read_text(encoding="utf-8", errors="replace"))
+                    print("--- END SIMULATION LAUNCH LOG ---")
                 break
             act_check = subprocess.run(
                 ["bash", "-c", f"source {setup_file} && ros2 action list"],

@@ -36,8 +36,8 @@ def generate_launch_description() -> LaunchDescription:
     slam = LaunchConfiguration("slam")
     headless = LaunchConfiguration("headless")
 
-    declare_slam = DeclareLaunchArgument("slam", default_value="false", description="Run SLAM Toolbox mapping instead of AMCL navigation")
-    declare_headless = DeclareLaunchArgument("headless", default_value="true", description="Run Gazebo headlessly")
+    declare_slam = DeclareLaunchArgument("slam", default_value="False", description="Run SLAM Toolbox mapping instead of AMCL navigation")
+    declare_headless = DeclareLaunchArgument("headless", default_value="True", description="Run Gazebo headlessly")
 
     bringup_launch_path = os.path.join(
         get_package_share_directory("valtoryn_bringup"), "launch", "sim_bringup.launch.py"

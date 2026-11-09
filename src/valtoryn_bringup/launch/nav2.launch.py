@@ -47,10 +47,10 @@ def generate_launch_description() -> LaunchDescription:
 
     declare_map = DeclareLaunchArgument("map", default_value=default_map, description="Full path to map yaml file")
     declare_params = DeclareLaunchArgument("params_file", default_value=default_params, description="Path to Nav2 params file")
-    declare_sim_time = DeclareLaunchArgument("use_sim_time", default_value="true", description="Use simulation clock")
-    declare_autostart = DeclareLaunchArgument("autostart", default_value="true", description="Automatically startup Nav2 stack")
+    declare_sim_time = DeclareLaunchArgument("use_sim_time", default_value="True", description="Use simulation clock")
+    declare_autostart = DeclareLaunchArgument("autostart", default_value="True", description="Automatically startup Nav2 stack")
     declare_col_monitor = DeclareLaunchArgument(
-        "use_collision_monitor", default_value="false",
+        "use_collision_monitor", default_value="False",
         description="Launch Nav2 collision monitor using /scan"
     )
 

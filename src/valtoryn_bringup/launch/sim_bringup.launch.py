@@ -167,7 +167,7 @@ def generate_launch_description() -> LaunchDescription:
     default_controllers = find_file("config/controllers.yaml")
 
     return LaunchDescription([
-        DeclareLaunchArgument("headless", default_value="true", description="Run Gazebo headlessly (-s)"),
+        DeclareLaunchArgument("headless", default_value="True", description="Run Gazebo headlessly (-s)"),
         DeclareLaunchArgument("world", default_value=default_world, description="Path to warehouse SDF world"),
         DeclareLaunchArgument("x_pose", default_value="-7.0", description="Spawn X coordinate (meters)"),
         DeclareLaunchArgument("y_pose", default_value="4.0", description="Spawn Y coordinate (meters)"),
