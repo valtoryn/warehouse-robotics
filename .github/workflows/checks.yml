@@ -1,4 +1,4 @@
-name: docs-and-config-checks
+name: checks-and-ros-build
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  checks:
+  static-and-unit-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
         run: python tools/check_interfaces.py
 
       - name: URDF generation smoke test
-        run: python tools/gen_urdf.py config/robots/ref-amr-diff-v1.yaml --out /tmp/ref-amr.urdf
+        run: python tools/gen_urdf.py config/robots/ref-amr-diff-v1.yaml --backend mock --out /tmp/ref-amr.urdf
 
       - name: Launch/params generation smoke test
         run: python tools/gen_launch.py config/robots/ref-amr-diff-v1.yaml --out-dir /tmp/gen
@@ -36,5 +36,29 @@ jobs:
       - name: Differential kinematics simulation test
         run: python tools/simulate_kinematics.py config/robots/ref-amr-diff-v1.yaml
 
-      - name: Unit tests
-        run: python -m unittest discover -s tests -v
+      - name: Offline unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+  ros-jazzy-build-and-test:
+    runs-on: ubuntu-latest
+    container:
+      image: osrf/ros:jazzy-desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build and runtime dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            python3-pip \
+            python3-colcon-common-extensions \
+            python3-yaml \
+            python3-jsonschema \
+            ros-jazzy-ros2-control \
+            ros-jazzy-ros2-controllers \
+            ros-jazzy-nav2-msgs
+
+      - name: Execute ROS 2 Jazzy integration spike and motion verification
+        run: |
+          . /opt/ros/jazzy/setup.sh
+          python3 tools/run_spike.py
