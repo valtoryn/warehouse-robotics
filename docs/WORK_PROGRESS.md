@@ -162,7 +162,8 @@
   - `38fe2b8` fix(simulation): align diff_drive_controller cmd_vel_unstamped topic and test sim time TF buffer
   - `1972636` fix(nav2): remove global SetRemap to prevent docking server DDS type collision and increase progress checker allowance
   - `1a8293d` fix(nav2): specify costmap width and height as integers for ROS 2 Jazzy
-  - `fix(simulation)`: elevate LiDAR above chassis deck, add goal retry settling, and expand scenario timeouts for headless simulation
+  - `71a76c1` fix(simulation): elevate LiDAR above chassis deck and expand scenario timeouts
+  - `fix(simulation)`: resolve pallet stack clearance, elevate LiDAR to 0.42m, and tune Nav2 controller parameters
 
 ## Remaining work
 

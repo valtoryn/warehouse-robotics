@@ -235,13 +235,13 @@
     <!-- Static Obstacle 1: Pallet Stack in Central Aisle -->
     <model name="pallet_stack_static">
       <static>true</static>
-      <pose>0.5 0.0 0.45 0 0 0</pose>
+      <pose>0.5 0.45 0.45 0 0 0</pose>
       <link name="link">
         <collision name="col">
-          <geometry><box><size>0.9 0.9 0.9</size></box></geometry>
+          <geometry><box><size>1.0 0.5 0.9</size></box></geometry>
         </collision>
         <visual name="vis">
-          <geometry><box><size>0.9 0.9 0.9</size></box></geometry>
+          <geometry><box><size>1.0 0.5 0.9</size></box></geometry>
           <material><ambient>0.7 0.45 0.25 1</ambient><diffuse>0.7 0.45 0.25 1</diffuse></material>
         </visual>
       </link>

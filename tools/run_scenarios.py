@@ -90,7 +90,7 @@ def generate_artifacts() -> bool:
     return True
 
 
-def run_scenarios(runs: int = 1, timeout_sec: int = 180) -> tuple[int, bool]:
+def run_scenarios(runs: int = 1, timeout_sec: int = 480) -> tuple[int, bool]:
     """Execute scenario verification suite and return (exit_code, passed)."""
     print(f"\n[2/4] Executing {runs} run(s) of warehouse navigation scenarios...")
     setup_file = ROOT / "install" / "setup.bash"

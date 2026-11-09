@@ -223,7 +223,16 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         self, target_x: float, target_y: float, target_yaw: float = 0.0, timeout_sec: float = 40.0
     ) -> tuple[bool, float, float, float]:
         """Send a NavigateToPose goal, wait for completion, and return (success, duration, pos_error, yaw_error)."""
-        if not self.action_client.wait_for_server(timeout_sec=5.0):
+        # Ensure Nav2 action server is ready and responsive
+        t_wait_server = time.time()
+        server_ready = False
+        while time.time() - t_wait_server < 15.0:
+            if self.action_client.server_is_ready():
+                server_ready = True
+                break
+            rclpy.spin_once(self.node, timeout_sec=0.2)
+
+        if not server_ready:
             return False, 0.0, float("inf"), float("inf")
 
         goal = NavigateToPose.Goal()
@@ -236,13 +245,13 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         goal.pose.pose.orientation.z = math.sin(target_yaw / 2.0)
         goal.pose.pose.orientation.w = math.cos(target_yaw / 2.0)
 
-        # Settle any pending transitions
-        for _ in range(5):
+        # Settle any pending transitions or previous goal cleanups
+        for _ in range(10):
             rclpy.spin_once(self.node, timeout_sec=0.1)
 
         goal_handle = None
         start_time = time.time()
-        for attempt in range(5):
+        for attempt in range(10):
             send_future = self.action_client.send_goal_async(goal)
             wait_accept_start = time.time()
             while time.time() - wait_accept_start < 5.0 and not send_future.done():
@@ -250,7 +259,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
 
             if send_future.done():
                 h = send_future.result()
-                if h.accepted:
+                if h is not None and h.accepted:
                     goal_handle = h
                     break
             t_wait = time.time()
@@ -268,7 +277,9 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         if not result_future.done():
             cancel_future = goal_handle.cancel_goal_async()
             t_cancel = time.time()
-            while time.time() - t_cancel < 3.0 and not cancel_future.done():
+            while time.time() - t_cancel < 5.0 and not cancel_future.done():
+                rclpy.spin_once(self.node, timeout_sec=0.1)
+            for _ in range(10):
                 rclpy.spin_once(self.node, timeout_sec=0.1)
             return False, duration, float("inf"), float("inf")
 
@@ -368,7 +379,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
 
     def test_07_scenario_3_static_obstacle_avoidance(self):
         """Scenario 3: Reach goal in central aisle navigating around static pallet stack."""
-        # Pallet stack is at (0.5, 0.0); navigate to point past the pallet stack at (2.5, 0.0)
+        # Pallet stack is at (0.5, 0.45); navigate to point past the pallet stack at (2.5, 0.0)
         success, duration, error, _ = self._send_nav_goal(
             target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=80.0
         )

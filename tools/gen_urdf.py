@@ -155,11 +155,11 @@ def generate(
         sp = sm.get("parameters", {})
         frame_id = sp.get("frame_id", "laser_link")
         parent_frame = sm.get("parent_frame", "base_link")
-        pose_xyz = sm.get("pose", {}).get("xyz", [0.38, 0.0, 0.32])
+        pose_xyz = sm.get("pose", {}).get("xyz", [0.38, 0.0, 0.42])
         pose_rpy = sm.get("pose", {}).get("rpy", [0.0, 0.0, 0.0])
         topic = sp.get("topic", "/scan").lstrip("/")
         update_rate = sp.get("update_rate", 10.0)
-        min_range = sp.get("min_range", 0.1)
+        min_range = sp.get("min_range", 0.12)
         max_range = sp.get("max_range", 12.0)
         samples = sp.get("samples", 360)
 

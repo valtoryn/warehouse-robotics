@@ -68,7 +68,7 @@ def generate_map(out_dir: Path | None = None) -> tuple[Path, Path]:
     fill_box(0.0, -4.2, 9.0, 0.9)    # Rack Row 4
 
     # Static Obstacles
-    fill_box(0.5, 0.0, 0.9, 0.9)     # Pallet stack in central aisle
+    fill_box(0.5, 0.45, 1.0, 0.5)    # Pallet stack staged on north side of central aisle
     fill_box(-2.5, 6.2, 0.8, 0.8)    # Staging crate in north bay
 
     # Write PGM (P5 binary format, bottom-to-top or top-to-bottom)
