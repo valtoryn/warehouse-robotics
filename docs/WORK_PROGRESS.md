@@ -112,8 +112,18 @@
       - Added support for `--runs N` with duration mean and standard deviation reporting across repetitions.
   - **Simulation Bringup Launch Parameter Propagation:**
     - Declared and propagated arguments `urdf_path`, `world`, `x_pose`, `y_pose`, `z_pose`, and `yaw` in `src/valtoryn_bringup/launch/warehouse_sim.launch.py` to `sim_bringup.launch.py`.
-  - **Warehouse Map & Target Coordinates Alignment:**
-    - Aligned scenario targets with clear warehouse corridors: Straight Corridor Navigation along west transit aisle (`[-7.0, 1.0, -1.57]`), 90-Degree Aisle Turn (`[-5.0, 2.9, 0.0]`), Static Obstacle Avoidance around central pallet stack (`[2.5, 0.0, 0.0]`), Dynamic Obstacle Detection in forward corridor, and Multi-Waypoint Mission Dispatch across stations.
+  - **Phase 3 Nav2 Autonomous Navigation Stabilization & SmacPlanner2D Configuration:**
+    - Diagnosed GitHub Actions run #31 scenario verification results:
+      - 7 of 10 tests passed (`test_01`, `test_02`, `test_03`, `test_04`, `test_05`, `test_08`, `test_10`).
+      - In `test_06` (Scenario 2: 90-degree turn), the robot turned into the central aisle but stopped at `(-4.64, 1.02)` with pose error 1.096m. Root causes identified:
+        1. `FollowPath` (`RegulatedPurePursuitController`) lacked `use_rotate_to_heading: true`. At the 90-degree turn, the AMR translated forward while sweeping an arc rather than rotating in place, swinging out towards Rack Row 2.
+        2. `planner_server` had `tolerance: 1.0` configured for `NavfnPlanner`. This allowed the planner to terminate paths up to 1.0m short of the goal and pin the robot against Rack 2's obstacle inflation footprint, causing `test_07` and `test_09` to fail to plan from within inscribed cost.
+      - Fix in `src/valtoryn_bringup/config/nav2_params.yaml`:
+        - Enabled `use_rotate_to_heading: true`, `rotate_to_heading_min_angle: 0.785` (45 deg), and `max_angular_vel: 1.0` in `FollowPath`.
+        - Configured `nav2_smac_planner::SmacPlanner2D` as the primary `GridBased` planner with `tolerance: 0.25`, `cost_travel_multiplier: 2.0`, and `downsample_costmap: false` for guaranteed 2D A* optimal search without Dijkstra saddle points or premature path truncation.
+        - Tuned `robot_radius: 0.40` in `local_costmap` and `global_costmap` matching the physical chassis half-width.
+      - Fix in `tests/test_ros_navigation.py`:
+        - Corrected fallback pose calculation from spawn odometry using exact spawn yaw (`yaw = -1.570796`) coordinate rotation.
 
 ## Validation results
 
@@ -166,7 +176,8 @@
   - `6f3e8f3` fix(simulation): resolve aisle obstacle clearance, elevate LiDAR to 0.42m, and tune Nav2 controller
   - `4310d60` fix(simulation): tune wheel lateral friction for skid-steer, align spawn yaw, and disable FollowPath collision detection
   - `5dc305d` fix(simulation): align scenario waypoints with central warehouse aisle
-  - `fix(nav2)`: enable A* in NavfnPlanner, tune inflation decay, and target open aisle lane
+  - `0a28632` fix(nav2): enable A* search in NavfnPlanner and tune costmap inflation
+  - `93af705` feat(nav2): configure SmacPlanner2D and rotate-to-heading in Nav2 bringup
 
 ## Remaining work
 
