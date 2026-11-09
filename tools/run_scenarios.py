@@ -143,9 +143,14 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 180) -> tuple[int, bool]:
                 ["bash", "-c", f"source {setup_file} && ros2 action list"],
                 capture_output=True, text=True,
             )
-            if "/navigate_to_pose" in act_check.stdout:
+            lc_check = subprocess.run(
+                ["bash", "-c", f"source {setup_file} && ros2 lifecycle get /bt_navigator 2>/dev/null"],
+                capture_output=True, text=True,
+            )
+            is_active = "active" in lc_check.stdout.lower()
+            if "/navigate_to_pose" in act_check.stdout and is_active:
                 ready = True
-                print("Nav2 /navigate_to_pose action server is ready.")
+                print("Nav2 /navigate_to_pose action server is active and ready.")
                 time.sleep(3.0)
                 break
             time.sleep(2.0)
