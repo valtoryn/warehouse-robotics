@@ -213,6 +213,23 @@ class GenUrdfTests(unittest.TestCase):
         self.assertIsNotNone(plugin)
         self.assertEqual(plugin.text, "valtoryn_diff_drive/DiffDriveHardware")
 
+    def test_ros2_control_joints_are_children_of_ros2_control(self):
+        config = yaml.safe_load(
+            (ROOT / "config/robots/ref-amr-diff-v1.yaml").read_text(encoding="utf-8")
+        )
+        urdf = gen_urdf.generate(config)
+        rc = urdf.find("ros2_control")
+        self.assertIsNotNone(rc)
+        joints = rc.findall("joint")
+        self.assertEqual(len(joints), 4)
+        for j in joints:
+            self.assertIsNotNone(j.find("command_interface[@name='velocity']"))
+            self.assertIsNotNone(j.find("state_interface[@name='position']"))
+            self.assertIsNotNone(j.find("state_interface[@name='velocity']"))
+        # Ensure hardware tag does NOT contain joint tags
+        hw = rc.find("hardware")
+        self.assertEqual(len(hw.findall("joint")), 0)
+
     def test_backend_selection_mock(self):
         config = yaml.safe_load(
             (ROOT / "config/robots/ref-amr-diff-v1.yaml").read_text(encoding="utf-8")

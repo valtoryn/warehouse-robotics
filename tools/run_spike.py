@@ -5,10 +5,10 @@ Executes the multi-stage integration spike or reports prerequisite blockers hone
   Stage 1: Preflight prerequisite inspection (Linux host, ROS 2 distro, colcon).
   Stage 2: Package compilation via colcon build across all src/ packages.
   Stage 3: Artifact generation (URDF + launch + controller parameters).
-  Stage 4: Headless node bringup and topic advertisement verification.
+  Stage 4: Headless node bringup with safe log capture, crash detection, and topic verification.
   Stage 5: Controller activation and hardware interface claim verification.
   Stage 6: Real motion command-to-odometry and timeout verification.
-  Stage 7: Automated ROS 2 integration tests execution.
+  Stage 7: Automated ROS 2 integration tests execution (motion + lifecycle).
 
 Exit Codes:
   0: Full spike passed, OR preflight succeeded when --preflight flag passed.
@@ -97,25 +97,44 @@ def run_stage_generation() -> bool:
     return True
 
 
-def run_stage_launch_and_verify(timeout: int = 15) -> bool:
+def dump_log(log_file: Path, max_lines: int = 100) -> None:
+    if not log_file.exists():
+        print(f"Log file {log_file} does not exist.")
+        return
+    try:
+        lines = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
+        print(f"\n--- BEGIN LAUNCH LOG (last {min(len(lines), max_lines)} lines) ---")
+        for line in lines[-max_lines:]:
+            print(line)
+        print("--- END LAUNCH LOG ---\n")
+    except Exception as exc:
+        print(f"Failed to read log file {log_file}: {exc}")
+
+
+def run_stage_launch_and_verify(timeout: int = 25) -> bool:
     print(f"\n[STAGE 4/7] Bringing up reference AMR mock robot (timeout: {timeout}s)...")
     setup_file = ROOT / "install" / "setup.bash"
     if not setup_file.exists():
         print(f"ERROR: Sourced workspace not found at {setup_file}.")
         return False
 
-    launch_script = ROOT / "generated" / "ref-amr-diff-v1_launch.py"
-    urdf_arg = f"urdf_path:={ROOT / 'generated' / 'spike_robot.urdf'}"
-    params_arg = f"params_path:={ROOT / 'generated' / 'ref-amr-diff-v1_controllers.yaml'}"
+    gen_dir = ROOT / "generated"
+    gen_dir.mkdir(parents=True, exist_ok=True)
+    log_file = gen_dir / "launch.log"
+
+    launch_script = gen_dir / "ref-amr-diff-v1_launch.py"
+    urdf_arg = f"urdf_path:={gen_dir / 'spike_robot.urdf'}"
+    params_arg = f"params_path:={gen_dir / 'ref-amr-diff-v1_controllers.yaml'}"
 
     launch_cmd = (
         f"source {setup_file} && "
         f"ros2 launch {launch_script} {urdf_arg} {params_arg}"
     )
 
+    log_f = open(log_file, "w", encoding="utf-8")
     proc = subprocess.Popen(
         launch_cmd, shell=True, executable="/bin/bash",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        stdout=log_f, stderr=subprocess.STDOUT, text=True,
     )
 
     expected_topics = {
@@ -126,47 +145,71 @@ def run_stage_launch_and_verify(timeout: int = 15) -> bool:
     }
     verified_topics = set()
     start_time = time.time()
+    jsb_active = False
+    ddc_active = False
 
     try:
         while time.time() - start_time < timeout:
+            # Check if process terminated prematurely
+            exit_code = proc.poll()
+            if exit_code is not None:
+                print(f"ERROR: Launch process died prematurely with exit code {exit_code}.")
+                log_f.flush()
+                dump_log(log_file)
+                return False
+
+            # Check controller status
+            ctrl_check = subprocess.run(
+                ["bash", "-c", f"source {setup_file} && ros2 control list_controllers"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if "joint_state_broadcaster[joint_state_broadcaster/JointStateBroadcaster] active" in ctrl_check.stdout:
+                jsb_active = True
+            if "diff_drive_controller[diff_drive_controller/DiffDriveController] active" in ctrl_check.stdout:
+                ddc_active = True
+
+            # Check topic advertisements
             topic_check = subprocess.run(
                 ["bash", "-c", f"source {setup_file} && ros2 topic list"],
-                capture_output=True, text=True, timeout=3,
+                capture_output=True, text=True, timeout=5,
             )
             if topic_check.returncode == 0:
                 current_topics = set(topic_check.stdout.splitlines())
                 for t in expected_topics:
                     if t in current_topics:
                         verified_topics.add(t)
-                if expected_topics.issubset(verified_topics):
-                    print(f"Successfully verified active topics: {sorted(verified_topics)}")
-                    break
+
+            if expected_topics.issubset(verified_topics) and jsb_active and ddc_active:
+                print(f"Successfully verified active topics: {sorted(verified_topics)}")
+                print("Successfully verified controllers active: joint_state_broadcaster, diff_drive_controller")
+                break
+
             time.sleep(1.0)
 
-        if not expected_topics.issubset(verified_topics):
-            print(f"ERROR: Timed out waiting for topics. Verified: {sorted(verified_topics)}, Missing: {sorted(expected_topics - verified_topics)}")
+        log_f.flush()
+
+        if not (expected_topics.issubset(verified_topics) and jsb_active and ddc_active):
+            print(f"ERROR: Timed out waiting for controllers and topics ({timeout}s).")
+            print(f"  Verified topics: {sorted(verified_topics)}")
+            print(f"  Missing topics:  {sorted(expected_topics - verified_topics)}")
+            print(f"  JSB active: {jsb_active}, DDC active: {ddc_active}")
+            ctrl_out = subprocess.run(
+                ["bash", "-c", f"source {setup_file} && ros2 control list_controllers"],
+                capture_output=True, text=True, timeout=5,
+            )
+            print(f"  Controllers status:\n{ctrl_out.stdout}")
+            dump_log(log_file)
             return False
 
         # STAGE 5: Verify controllers and hardware interfaces
         print("\n[STAGE 5/7] Verifying controller states and hardware interfaces...")
-        ctrl_check = subprocess.run(
-            ["bash", "-c", f"source {setup_file} && ros2 control list_controllers"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if "joint_state_broadcaster[joint_state_broadcaster/JointStateBroadcaster] active" not in ctrl_check.stdout:
-            print("ERROR: joint_state_broadcaster is not active.")
-            return False
-        if "diff_drive_controller[diff_drive_controller/DiffDriveController] active" not in ctrl_check.stdout:
-            print("ERROR: diff_drive_controller is not active.")
-            return False
-        print("Verified controllers active: joint_state_broadcaster, diff_drive_controller.")
-
         hw_check = subprocess.run(
             ["bash", "-c", f"source {setup_file} && ros2 control list_hardware_interfaces"],
             capture_output=True, text=True, timeout=5,
         )
         if "wheel_fl_joint/velocity [claimed]" not in hw_check.stdout:
-            print("ERROR: wheel velocity command interfaces not claimed.")
+            print(f"ERROR: Wheel velocity command interfaces not claimed.\n{hw_check.stdout}")
+            dump_log(log_file)
             return False
         print("Verified hardware interfaces exported and claimed.")
 
@@ -183,6 +226,7 @@ def run_stage_launch_and_verify(timeout: int = 15) -> bool:
         )
         if cmd_pub.returncode != 0:
             print(f"ERROR: Failed to publish cmd_vel: {cmd_pub.stderr}")
+            dump_log(log_file)
             return False
 
         # Read back odometry
@@ -197,6 +241,7 @@ def run_stage_launch_and_verify(timeout: int = 15) -> bool:
         )
         if odom_echo.returncode != 0 or "position" not in odom_echo.stdout:
             print("ERROR: Failed to read /diff_drive_controller/odom")
+            dump_log(log_file)
             return False
         print("Successfully verified motion command and odometry feedback.")
 
@@ -208,20 +253,24 @@ def run_stage_launch_and_verify(timeout: int = 15) -> bool:
                 f"source {setup_file} && "
                 f"python3 -m unittest discover -s tests -p 'test_ros_*.py' -v"
             ],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=60,
         )
         print(test_run.stdout)
+        if test_run.stderr:
+            print(test_run.stderr)
         if test_run.returncode != 0:
-            print(f"ERROR: Integration tests failed: {test_run.stderr}")
+            print(f"ERROR: Integration tests failed with return code {test_run.returncode}")
+            dump_log(log_file)
             return False
 
         return True
     finally:
         proc.terminate()
         try:
-            proc.wait(timeout=3)
+            proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
+        log_f.close()
 
 
 def main() -> int:
@@ -231,8 +280,8 @@ def main() -> int:
         help="Check prerequisites only without attempting build or launch",
     )
     parser.add_argument(
-        "--timeout", type=int, default=15,
-        help="Timeout in seconds for node launch topic verification (default: 15)",
+        "--timeout", type=int, default=25,
+        help="Timeout in seconds for node launch topic verification (default: 25)",
     )
     args = parser.parse_args()
 

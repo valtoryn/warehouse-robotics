@@ -121,8 +121,8 @@ CallbackReturn DiffDriveHardware::on_init(const hardware_interface::HardwareInfo
 
   RCLCPP_INFO(
     rclcpp::get_logger("DiffDriveHardware"),
-    "Initialized DiffDriveHardware with %zu joints (mock_hardware: %s)",
-    joint_names_.size(), mock_hardware_ ? "true" : "false");
+    "Initialized DiffDriveHardware with %zu joints (mock: %s, CAN: %s)",
+    joint_names_.size(), mock_hardware_ ? "true" : "false", can_interface_.c_str());
 
   return CallbackReturn::SUCCESS;
 }

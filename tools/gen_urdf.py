@@ -137,7 +137,7 @@ def generate(config: dict, backend_override: str | None = None) -> ET.Element:
             param_can.text = "can0"
 
     for suffix in WHEEL_POSITIONS:
-        j = ET.SubElement(hw, "joint", name=f"wheel_{suffix}_joint")
+        j = ET.SubElement(rc, "joint", name=f"wheel_{suffix}_joint")
         ET.SubElement(j, "command_interface", name="velocity")
         ET.SubElement(j, "state_interface", name="position")
         ET.SubElement(j, "state_interface", name="velocity")
