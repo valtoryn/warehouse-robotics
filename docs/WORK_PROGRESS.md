@@ -17,40 +17,64 @@
   - Fixed IDL type error in `src/valtoryn_interfaces/msg/FacilityEdge.msg` (replaced invalid `double` with `float64`).
   - Fixed `tools/gen_urdf.py` ElementTree bug where `<plugin text="..."/>` was generated as an attribute instead of inner text (`<plugin>valtoryn_diff_drive/DiffDriveHardware</plugin>`).
   - Fixed wheel cylinder orientation in `tools/gen_urdf.py` (added `rpy="1.570796 0 0"` roll so cylinder aligns with rotation axis Y).
-  - Added Gazebo `gz_ros2_control` simulation plugin generation in `tools/gen_urdf.py` when profile is `simulation`.
   - Fixed `tools/gen_launch.py` bug passing URDF path directly to `robot_state_publisher` and `controller_manager` parameters rather than string parameter dictionary `{'robot_description': robot_desc_content}`, and added standard local and global costmaps to Nav2 parameters.
   - Fixed `tools/check_config.py` SemVer parser bug where `0.x.y` caret ranges (e.g. `^0.1.0`) allowed breaking major versions; added compound range parsing (`>=1.0.0 <2.0.0`), unique module instance validation, and Gate C2 `parent_frame` and `mount_type` validation.
-- **Phase 2 Implementation:**
-  - Created `src/valtoryn_diff_drive/`: ROS 2 `ros2_control` hardware abstraction package with `DiffDriveHardware` system interface (supporting mock simulation integration and physical CAN motor driver backends).
-  - Created `tools/check_interfaces.py`: static ROS IDL, package manifest, and BT XML validator.
-  - Created `tools/simulate_kinematics.py`: differential drive forward/inverse kinematics simulator with closed-loop trajectory verification.
-  - Created `tools/run_spike.py`: automated environment verification and integration spike runner for Gate G-C.
-  - Expanded unit test suite (`tests/test_tools.py`) from 16 to 27 unit tests covering SemVer fixes, C2 validation, URDF/launch generation, interface validation, and kinematics simulation.
-  - Updated CI workflow (`.github/workflows/checks.yml`) to include interface checks and differential kinematics simulation.
+- **Phase 2 Hardware Abstraction & Backend Architecture:**
+  - Enforced fail-closed safety rule in `src/valtoryn_diff_drive/src/diff_drive_hardware.cpp`: physical backend (`mock_hardware == false`) fails with error in `on_init()`, `on_activate()`, `read()`, and `write()` until genuine SocketCAN motor drivers are implemented. No fake feedback or placeholder success.
+  - Added strict joint uniqueness verification and comprehensive state interface validation (ensuring both `position` and `velocity` interfaces exist per joint).
+  - Added finite command check (`std::isfinite`) preventing NaN/Inf motor commands; added buffer zeroing on `on_deactivate()`.
+  - Resolved backend selection architecture via `target.backend` (`mock`, `gazebo`, `physical`) in `schemas/robot-config.schema.json` and `tools/check_config.py`:
+    - `mock`: uses `valtoryn_diff_drive/DiffDriveHardware` with loopback.
+    - `gazebo`: uses standard `gz_ros2_control/GazeboSimSystem` and `<gazebo>` system plugin.
+    - `physical`: uses `valtoryn_diff_drive/DiffDriveHardware` with `mock_hardware: false` (fails closed).
+  - Standardized reference configuration `config/robots/ref-amr-diff-v1.yaml` on `target.ros_distro: "jazzy"` and `target.backend: "mock"`.
+- **Phase 2 Kinematics & Lifecycle Implementation:**
+  - Enhanced `tools/simulate_kinematics.py`: added input parameter validation, curvature-preserving proportional command scaling ($R = v/\omega$), and slip validation.
+  - Implemented `src/valtoryn_lifecycle/`: Subsystem Lifecycle Supervisor supporting 4-tier startup sequencing (Tier 1 Hardware -> Tier 2 Localisation -> Tier 3 Navigation -> Tier 4 Task), cascading failure shutdown, and diagnostic status reporting (`DiagnosticStatusReport`).
+  - Updated `tools/run_spike.py`: truthful preflight environment checks and exit codes (missing Linux/ROS environment exits 2, never reports false success).
+- **Test Suite & CI Expansion:**
+  - Created `tests/test_lifecycle.py` with 8 tests for lifecycle state transitions, tier ordering, fault cascading, and diagnostics.
+  - Expanded `tests/test_tools.py` with tests for backend selection, backend incompatibility, and kinematics edge cases (zero command, pure translation, pure rotation, curvature preservation, asymmetric slip).
+  - Total test count expanded to **49 unit tests**, all passing.
 
 ## Files created or modified
 
+- `README.md` (updated evidence taxonomy and implementation baseline)
+- `docs/ARCHITECTURE_MILESTONE_REPORT.md` (updated with implementation addendum)
+- `docs/architecture/HARDWARE_ABSTRACTION.md` (documented backend architecture and fail-closed safety)
+- `docs/architecture/TECHNOLOGY_DECISIONS.md` (aligned active baseline on Jazzy Jalisco)
+- `docs/engineering/DEVELOPMENT_ROADMAP.md` (updated Phase 2 status)
 - `docs/engineering/DECISION_GATES.md` (updated with full evidence and options)
 - `docs/engineering/DEPENDENCY_MATRIX.md` (updated driver and Gazebo rows)
 - `docs/WORK_PROGRESS.md` (this checkpoint)
+- `config/robots/ref-amr-diff-v1.yaml` (updated to jazzy distro and mock backend)
+- `modules/com.valtoryn.chassis.differential/manifest.yaml` (updated distro to jazzy, ros2_control >= 4.0)
+- `schemas/robot-config.schema.json` (added target.backend enum)
 - `src/valtoryn_interfaces/srv/GetCapabilities.srv` (fixed syntax)
 - `src/valtoryn_interfaces/srv/GetModuleManifest.srv` (fixed syntax)
 - `src/valtoryn_interfaces/msg/FacilityEdge.msg` (fixed float64 type)
 - `src/valtoryn_interfaces/package.xml` (maintainer aligned)
 - `src/valtoryn_task_bt/package.xml` (maintainer aligned)
-- `src/valtoryn_diff_drive/include/valtoryn_diff_drive/diff_drive_hardware.hpp` (new)
-- `src/valtoryn_diff_drive/src/diff_drive_hardware.cpp` (new)
-- `src/valtoryn_diff_drive/valtoryn_diff_drive.xml` (new)
-- `src/valtoryn_diff_drive/package.xml` (new)
-- `src/valtoryn_diff_drive/CMakeLists.txt` (new)
-- `tools/check_config.py` (fixed SemVer bug, added C2 checks)
-- `tools/gen_urdf.py` (fixed plugin text, wheel orientation, gazebo tags)
+- `src/valtoryn_diff_drive/include/valtoryn_diff_drive/diff_drive_hardware.hpp` (fail-closed physical safety, finite checks)
+- `src/valtoryn_diff_drive/src/diff_drive_hardware.cpp` (fail-closed physical safety, finite checks, state validation)
+- `src/valtoryn_diff_drive/valtoryn_diff_drive.xml` (plugin description)
+- `src/valtoryn_diff_drive/package.xml` (package definition)
+- `src/valtoryn_diff_drive/CMakeLists.txt` (build rules)
+- `src/valtoryn_lifecycle/package.xml` (new lifecycle package)
+- `src/valtoryn_lifecycle/setup.py` (new)
+- `src/valtoryn_lifecycle/setup.cfg` (new)
+- `src/valtoryn_lifecycle/resource/valtoryn_lifecycle` (new)
+- `src/valtoryn_lifecycle/valtoryn_lifecycle/__init__.py` (new)
+- `src/valtoryn_lifecycle/valtoryn_lifecycle/lifecycle_supervisor.py` (new supervisor node & diagnostics)
+- `tools/check_config.py` (fixed SemVer bug, added backend compatibility checks)
+- `tools/gen_urdf.py` (fixed plugin text, wheel orientation, backend plugin selection)
 - `tools/gen_launch.py` (fixed robot_description launch parameters, nav2 costmaps)
-- `tools/check_interfaces.py` (new static IDL and manifest validator)
-- `tools/simulate_kinematics.py` (new kinematics simulation verification)
-- `tools/run_spike.py` (new G-C spike runner)
-- `tests/test_tools.py` (expanded to 27 unit tests)
-- `.github/workflows/checks.yml` (added new validation steps)
+- `tools/check_interfaces.py` (static IDL, manifest, and BT XML validator; updated for lifecycle pkg)
+- `tools/simulate_kinematics.py` (strict validation, curvature preservation scaling)
+- `tools/run_spike.py` (truthful preflight and exit codes)
+- `tests/test_tools.py` (expanded unit tests)
+- `tests/test_lifecycle.py` (new lifecycle supervisor unit tests)
+- `.github/workflows/checks.yml` (interface checks and kinematics simulation)
 
 ## Validation results
 
@@ -58,20 +82,28 @@
 - `python tools/check_config.py`: OK (1 config, 2 manifests).
 - `python tools/check_interfaces.py`: OK (7 msgs, 2 srvs, package manifests and BT XML valid).
 - `python tools/simulate_kinematics.py config/robots/ref-amr-diff-v1.yaml`: OK (trajectory closure error: 0.002253 m).
-- `python -m unittest discover -s tests -v`: 27 tests passed in 0.153s.
-- `python tools/run_spike.py`: Correctly identifies Windows host missing Linux/ROS 2 prerequisites and reports Docker container execution instructions without fabricating results.
+- `python -m unittest discover -s tests -p "test_*.py"`: 49 tests passed in 0.256s.
+- `python tools/run_spike.py`: Correctly identifies Windows host missing Linux/ROS 2 prerequisites (exit code 2) and reports Docker container execution instructions without fabricating results.
 
 ## Commits and pushes
 
-- Previous: `8ad8bae` docs: update work progress checkpoint after Phase 2 scaffolding
-- (New commits pending verification and publishing)
+- Remote commits published:
+  - `4380192` docs(engineering): update Phase 1 decision gates with hardware evidence and options
+  - `90ffe60` fix(scaffolding): resolve syntax and logic defects across interfaces, generators, and validators
+  - `945dd42` feat: add differential drive hardware component, kinematics simulation, and integration tests
+- Local commits staged for publishing:
+  - `fix(diff_drive): enforce physical backend safety check and interface validation`
+  - `feat(config): add backend selection and kinematics limit scaling`
+  - `feat(lifecycle): implement subsystem lifecycle supervisor and diagnostics`
+  - `test: expand unit test suite to 49 tests for lifecycle, backends, and kinematics`
+  - `docs: reconcile documentation drift and update work progress checkpoint`
 
 ## Remaining work
 
 - **Owner Decision on Distro Pin:** Confirm choice between Option 1 (Jazzy Jalisco on Ubuntu 24.04 LTS, recommended) and Option 2/3.
 - **Phase 1 Leftovers:** Physical floor survey (G-F) upon site access; G-C spike execution in Linux/Docker environment.
-- **Phase 2 Follow-ups:** Lifecycle supervisor node and diagnostics plumbing.
+- **Phase 2 Follow-ups:** Compile validation in Ubuntu 24.04 container via `colcon build`.
 
 ## Exact next action
 
-Stage, commit, and push Phase 1 gate updates, defect fixes, and Phase 2 hardware abstraction components. Report status to project owner.
+Stage, commit, and push Phase 2 backend architecture, lifecycle supervision, and documentation updates to `origin/main`. Report status to project owner.

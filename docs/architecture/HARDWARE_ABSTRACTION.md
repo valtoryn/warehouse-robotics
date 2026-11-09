@@ -110,14 +110,17 @@ Every backend (real, Gazebo, mock, HIL) must implement the same interface set fo
 
 | Requirement | Detail |
 |---|---|
-| Same URDF/`<ros2_control>` declaration | Backend chosen by hardware-plugin mapping, not by changing the description |
+| Declarative backend selection | Selected in robot configuration via `target.backend` enum (`mock`, `gazebo`, `physical`) |
+| Plugin mapping in URDF generator | `mock`: `<plugin>valtoryn_diff_drive/DiffDriveHardware</plugin>` with `mock_hardware: true`.<br>`gazebo`: `<plugin>gz_ros2_control/GazeboSimSystem</plugin>` with `<gazebo>` system plugin.<br>`physical`: `<plugin>valtoryn_diff_drive/DiffDriveHardware</plugin>` with `mock_hardware: false`. |
 | Same command/state interface names, types, units, limits | Limits enforced identically (mock may relax for testability, declared in config) |
 | Same lifecycle semantics | configure→activate→read/write→deactivate→cleanup; error→FINALIZED |
+| Fail-closed physical safety | Unsupported or unconfigured physical backends return `CallbackReturn::ERROR` during configuration/activation and `return_type::ERROR` during read/write to prevent unauthorized or fabricated physical execution |
 | Same diagnostics topics | Simulator reports simulated faults through the same path |
 | Determinism label | Real: physical; sim: statistical (N-run gates per R05 §5.7) |
 
-Mock hardware (`GenericSystem` pattern, R02 §3.2 [FACT R02-S11]) enables controller and launch testing without
-hardware; it is the CI backend for unit/integration tiers.
+Mock hardware (`valtoryn_diff_drive/DiffDriveHardware` with loopback) enables controller and launch testing without
+hardware; it is the default backend for CI unit and integration tiers. Gazebo physics simulation is supported via
+the standard `gz_ros2_control` system plugin. Physical hardware mode fails closed until genuine CAN drivers are wired.
 
 ## 9. Error handling contract
 

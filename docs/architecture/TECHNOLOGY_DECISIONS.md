@@ -9,7 +9,7 @@
 | # | Decision | Status | Basis |
 |---|---|---|---|
 | TD-1 | ROS 2 as middleware | **Proposed — adopt** | Only maintained ecosystem meeting all requirements; R01 §8, R04 §4.1 |
-| TD-2 | ROS 2 distribution: Lyrical primary, Jazzy fallback | **Proposed — conditional** | R04 §4.1/§4.3; Gates A–C must pass first |
+| TD-2 | ROS 2 distribution: Jazzy primary baseline, Lyrical tracked | **Proposed — active baseline Jazzy** | R04 §4.1/§4.3; Gate G-A JetPack 7.2 alignment requires Ubuntu 24.04 LTS; pending owner decision |
 | TD-3 | ros2_control as hardware abstraction | **Proposed — adopt** | Closest existing match; R01 §2.3, R02 §3.2 |
 | TD-4 | Nav2 as navigation stack behind Valtoryn interface | **Proposed — adopt** | Multi-kinematics, funded maintainer, plugin model; R01 §3, R06 §8.1 |
 | TD-5 | SLAM Toolbox + AMCL/robot_localization for localisation | **Proposed — adopt, keep swappable** | R04 §4.1, R06 §8.5 |

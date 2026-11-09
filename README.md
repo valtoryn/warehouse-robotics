@@ -4,12 +4,13 @@ An open-source effort to build a **fully modular autonomous warehouse robotics p
 that can run on different robot chassis, locomotion types, sensor sets and payload modules, from simulation through
 hardware-in-the-loop to physical deployment.
 
-> **Project status: research, architecture and early platform scaffolding.**
-> The repository contains research, architecture and engineering specifications plus configuration tooling
-> (robot/module schemas and validators under `schemas/`, `config/`, `modules/`, `tools/`). There is still no
-> robot software, no simulation and no hardware. Everything described as a design, requirement or
-> recommendation is *proposed*, not built, not simulated and not physically validated. Nothing here is
-> safety-rated or certified for use around people.
+> **Project status: research, architecture, configuration tooling, and Phase 2 platform components.**
+> The repository contains research, architecture and engineering specifications, declarative configuration tooling
+> (`schemas/`, `config/`, `modules/`, `tools/`), and Phase 2 platform packages (`valtoryn_interfaces`, `valtoryn_diff_drive`,
+> `valtoryn_lifecycle`, `valtoryn_task_bt`) validated by 49 unit tests.
+> Platform software components are *Implemented* (source code exists and passes Python-based test suites).
+> They have **not** yet been compiled under a ROS 2 environment on this host, **not** run in Gazebo physics simulation,
+> and **not** physically validated on hardware. Nothing here is safety-rated or certified for use around people.
 
 ## Vision
 
@@ -28,17 +29,18 @@ mechanical modularity is to be introduced progressively.
 
 ## Evidence levels used throughout this repository
 
-Documents distinguish five states and never describe a capability at a higher level than the evidence supports:
+Documents distinguish six states and never describe a capability at a higher level than the evidence supports:
 
 | Level | Meaning |
 |---|---|
 | Confirmed requirement | Stated by the project owner or derived from a cited external requirement |
 | Proposed architecture | A design recommendation in the documentation |
-| Implemented | Code exists in this repository and is tested |
-| Simulated | Behaviour demonstrated in simulation only |
-| Physically validated | Behaviour demonstrated on real hardware, with recorded evidence |
+| Implemented | Code exists in this repository and is covered by automated unit/static tests |
+| Compiled | Code has been built into binary artifacts under the target ROS toolchain |
+| Simulated | Behaviour demonstrated under a physics-based simulator (e.g. Gazebo Sim) |
+| Physically validated | Behaviour demonstrated on real physical hardware, with recorded evidence |
 
-Currently, no capability is at the *Implemented*, *Simulated* or *Physically validated* level.
+Currently, platform configuration tooling, kinematics models, interface packages, hardware abstraction components, and lifecycle supervisor logic are at the *Implemented* level. No capability is at the *Compiled*, *Simulated*, or *Physically validated* level.
 
 ## Repository guide
 

@@ -1,7 +1,13 @@
 # Architecture milestone report
 
 > **Date:** 2026-11-07 · **Scope:** audit existing research → architecture synthesis → engineering
-> specifications. **Status:** documentation milestone complete; nothing is implemented.
+> specifications. **Status:** documentation milestone complete; nothing was implemented at report time.
+>
+> **Implementation Addendum (2026-11-09):** Phase 2 platform implementation has commenced.
+> Implemented components include `valtoryn_interfaces`, `valtoryn_diff_drive`, `valtoryn_lifecycle`, `valtoryn_task_bt`,
+> configuration tooling (`check_config.py`, `gen_urdf.py`, `gen_launch.py`, `simulate_kinematics.py`, `check_interfaces.py`),
+> and 49 unit tests. The sections below record the baseline repository state at the completion of the original
+> 2026-11-07 architecture milestone.
 
 ## 1. What was inspected
 

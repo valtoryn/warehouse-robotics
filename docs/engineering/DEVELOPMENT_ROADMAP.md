@@ -30,8 +30,16 @@ component shortlist narrowed to a buyable set.
 
 **Deliverables:** colcon workspace; interface packages (Valtoryn msg/srv/action: chassis contract,
 manifest schema v1, facility-model types); config schema + generator producing URDF/launch/params for a
-**simulated** differential-drive robot; mock + Gazebo backends; lifecycle supervisor; diagnostics plumbing;
+differential-drive robot; mock + Gazebo backends; lifecycle supervisor; diagnostics plumbing;
 CI (unit + launch_testing + headless Gazebo smoke).
+
+**Current status:** In progress.
+- Core interface packages (`valtoryn_interfaces`), task BT skeleton (`valtoryn_task_bt`), differential-drive hardware interface (`valtoryn_diff_drive`), and subsystem lifecycle supervisor (`valtoryn_lifecycle`) created.
+- Declarative backend mapping (`mock`, `gazebo`, `physical`) added to robot config schema and generators.
+- Fail-closed physical safety boundary enforced in hardware component.
+- Kinematics verification tool (`simulate_kinematics.py`) with curvature preservation implemented.
+- Reproducible integration spike runner (`run_spike.py`) created with honest preflight environment detection.
+- Unit test suite expanded to 49 passing tests.
 
 **Acceptance:** one robot config builds and runs in Gazebo and in mock; `ros2 control` list shows the
 chassis; generated files reproducible; CI green.
