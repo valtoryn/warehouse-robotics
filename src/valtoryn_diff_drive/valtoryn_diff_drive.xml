@@ -1,0 +1,10 @@
+<library path="valtoryn_diff_drive">
+  <class name="valtoryn_diff_drive/DiffDriveHardware"
+         type="valtoryn_diff_drive::DiffDriveHardware"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      Valtoryn differential drive ros2_control hardware abstraction interface.
+      Supports mock integration and physical CAN motor driver backends.
+    </description>
+  </class>
+</library>

@@ -24,11 +24,17 @@ jobs:
       - name: Robot config and manifest checks
         run: python tools/check_config.py
 
+      - name: ROS interface and BT XML static checks
+        run: python tools/check_interfaces.py
+
       - name: URDF generation smoke test
         run: python tools/gen_urdf.py config/robots/ref-amr-diff-v1.yaml --out /tmp/ref-amr.urdf
 
       - name: Launch/params generation smoke test
         run: python tools/gen_launch.py config/robots/ref-amr-diff-v1.yaml --out-dir /tmp/gen
+
+      - name: Differential kinematics simulation test
+        run: python tools/simulate_kinematics.py config/robots/ref-amr-diff-v1.yaml
 
       - name: Unit tests
         run: python -m unittest discover -s tests -v
