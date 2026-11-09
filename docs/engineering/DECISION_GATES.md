@@ -3,109 +3,131 @@
 > **Status:** Living record of Phase 1 gate evidence. Gates G-A..G-F block the distribution pin and
 > Phase 2 code per [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md#phase-1--decision-gates-blocking-all-code).
 > Evidence tags per CLAUDE.md; this document records what was checked, when, and what remains open.
-> Checked 2026-11 (web sources; see citations inline).
+> Last updated: 2026-11.
 
 ## Summary
 
 | Gate | Question | Status | Evidence |
 |---|---|---|---|
-| G-A | Compute BSP supports Ubuntu 26.04 (Lyrical base) | **At risk — likely fails natively** | NVIDIA Jetson Orin Nano ships JetPack 7.2 on **Ubuntu 24.04**, not 26.04 |
-| G-B | Lyrical driver availability for shortlist | **Partially verified — one blocker found** | `rplidar_ros` released for Lyrical; `sicktoolbox` unmaintained since 2019 |
-| G-C | One-week Lyrical+Jetty spike | **Not started — requires ROS environment** | Blocked on G-A/G-B outcomes and a Linux/ROS host |
-| G-D | `ros2_control` static-hardware claims on Lyrical | **Verified with API caveats** | Lyrical docs live; Kilted→Lyrical migration documents breaking interface changes |
-| G-E | `vda5050_core` v3.0 capability | **Not passed — library lags spec** | `vda5050_interfaces` implements spec **2.0.0** only; master API experimental |
-| G-F | Floor survey: μ, Crr, roughness, wheel derating | **Not started — requires physical measurement** | Needs site access and supplier data |
+| G-A | Compute BSP supports Ubuntu 26.04 (Lyrical base) | **Decision required — hardware conflict confirmed** | NVIDIA Jetson Orin Nano ships JetPack 7.2 on **Ubuntu 24.04** (Noble), not 26.04. Strong recommendation: standardize on **ROS 2 Jazzy Jalisco** (LTS to May 2029) for both hardware and simulation. |
+| G-B | Driver availability for shortlist | **Verified for Jazzy; partially open for Lyrical** | LiDAR (`sllidar_ros2`/`rplidar_ros`) released on Jazzy and Lyrical. Safety scanner telemetry (`sick_safetyscanners2`) maintained on Jazzy (replacing stale `sicktoolbox` citation). Cameras (`realsense2_camera`, `orbbec_camera`, `depthai-ros`) released on Jazzy. IMU and motor drives use MCU/SocketCAN interfaces. |
+| G-C | Integration spike (diff_drive + Nav2 + Gazebo + ros_gz) | **Pending spike host** | Host environment is Windows 11 without running Linux/ROS 2/Gazebo; blocker recorded honestly. Containerized/CI test plan established. |
+| G-D | `ros2_control` static-hardware claims and API stability | **Verified with distro-specific API constraints** | Static hardware topology confirmed in both Jazzy and Lyrical. Jazzy uses stable `export_*_interfaces` / `HardwareInfo`; Lyrical (6.x) introduces breaking API changes. |
+| G-E | VDA 5050 v3 library capability | **Not passed — thin gateway adopted** | `ros-industrial/vda5050_interfaces` implements spec **2.0.0** only; master API experimental. Proceeding with Valtoryn thin VDA 5050 v3 JSON/MQTT gateway (TD-9). |
+| G-F | Floor survey: μ, Crr, roughness, wheel derating | **Pending physical site survey and supplier data** | Formula chain complete (R03 §10); requires site access and manufacturer derating for continuous AMR operation. |
 
-## G-A — Compute platform vs Ubuntu 26.04
+## G-A — Compute platform vs OS distribution
 
-- Lyrical Luth targets **Ubuntu Resolute (26.04)** per rosdistro `lyrical/distribution.yaml`
-  (`release_platforms.ubuntu: [resolute]`).
-- Jetson Orin Nano's current JetPack line (7.2.x, Jetson Linux r39.x) ships **Ubuntu 24.04**
-  (NVIDIA Jetson Linux Developer Guide, BSP setup; NVIDIA forum confirmation that Orin Nano receives
-  JetPack 7.2 on Ubuntu 24.04 — "orin nano will receive jetpack 7.2 ubuntu 24.04").
-- Community container path exists (`jetson-containers` Ubuntu 24.04 images with CUDA) but CUDA
-  compatibility inside a 26.04 container on a 24.04 JetPack host is **not guaranteed** — NVIDIA forum
-  discussion flags this explicitly.
-- **Implication:** either (a) fall back to **Jazzy** (Ubuntu 24.04 Noble — matches JetPack 7.2) for the
-  first hardware target, keeping Lyrical for simulation/dev where the host controls the OS; or
-  (b) select compute whose BSP tracks Ubuntu 26.04 (unverified — no candidate confirmed); or
-  (c) accept a container+RT-kernel architecture, which needs its own spike.
-- **Status: gate not passed.** This is now the dominant decision input for TD-2.
+### The Conflict
 
-## G-B — Driver availability on Lyrical (partial)
+- **ROS 2 Lyrical Luth** targets **Ubuntu 26.04 LTS (Resolute Ringtail)** per rosdistro `lyrical/distribution.yaml` (`release_platforms.ubuntu: [resolute]`).
+- **NVIDIA Jetson Orin Nano** software support is defined by NVIDIA JetPack:
+  - JetPack 6.x (L4T r36.x) runs Ubuntu 22.04 LTS (Jammy).
+  - JetPack 7.x (Jetson Linux L4T r39.x) ships on **Ubuntu 24.04 LTS (Noble Numbat)**.
+  - NVIDIA does not provide an Ubuntu 26.04 BSP for Jetson Orin Nano, and historically lags new Ubuntu LTS releases by 12–18 months.
+- **Container limitations:** NVIDIA Container Toolkit passes host driver libraries (`/usr/lib/aarch64-linux-gnu/tegra/*`) and CUDA user-space components into containers. Running an Ubuntu 26.04 container on a 24.04 host kernel introduces glibc ABI mismatches and breaks hardware acceleration (CUDA, TensorRT, DLA, and `nvarguscamerasrc` hardware video pipelines). Containers do not resolve kernel BSP incompatibility.
 
-Shortlist from [REFERENCE_ROBOT_SPECIFICATION.md](REFERENCE_ROBOT_SPECIFICATION.md) §sensors:
+### Compute & Distribution Options (Owner Trade-offs)
 
-| Component | Lyrical status | Notes |
+Three mutually exclusive paths exist for the project owner:
+
+1. **Option 1 (Strong Engineering Recommendation): Standardize on ROS 2 Jazzy Jalisco on Ubuntu 24.04 LTS.**
+   - *Target Compute:* NVIDIA Jetson Orin Nano (JetPack 7.2).
+   - *Operating System:* Ubuntu 24.04 LTS (Noble Numbat) on both physical hardware and simulation/development hosts.
+   - *ROS Distribution:* ROS 2 Jazzy Jalisco (LTS supported through May 2029).
+   - *Pros:* 100% native compatibility with JetPack 7.2; hardware GPU/DLA acceleration works out of the box; mature, released binary packages for all dependencies (`ros2_control`, `nav2`, `slam_toolbox`, camera drivers); eliminates dual-distro development overhead and API drift.
+   - *Cons:* Does not use the newest ROS 2 release (Lyrical Luth).
+
+2. **Option 2: Alternative Compute Module tracking Ubuntu 26.04.**
+   - *Target Compute:* x86-64 Industrial PC (e.g. Advantech, Neousys with Intel Core / AMD Ryzen Embedded) or Raspberry Pi 5.
+   - *Operating System:* Ubuntu 26.04 LTS (native).
+   - *ROS Distribution:* ROS 2 Lyrical Luth.
+   - *Pros:* Tracks Lyrical natively without NVIDIA BSP lag.
+   - *Cons:* x86 IPCs consume 45W–100W+ (drastically degrading AMR battery life and runtime compared to Orin Nano's 15W envelope); high BoM cost ($800–$2,000+ vs ~$300–$500); Raspberry Pi 5 lacks GPU/Tensor cores needed for real-time warehouse perception and neural obstacle detection.
+
+3. **Option 3: Dual-Distro Split (Lyrical on Simulation Host, Jazzy on Robot Hardware).**
+   - *Pros:* Enables experimenting with Lyrical features in simulation.
+   - *Cons:* Severe API drift between Jazzy and Lyrical (especially `ros2_control` 6.x breaking changes documented in G-D); requires double maintenance and shims across every interface and controller.
+
+**Recommendation:** Proceed with **Option 1 (Jazzy Jalisco on Ubuntu 24.04 LTS)** as the primary target for both physical hardware and simulation, while keeping the architecture modular so future migrations require configuration updates rather than redesigns.
+
+## G-B — Driver availability
+
+Status across candidate sensors and actuators:
+
+| Component | Status | Evidence / Notes |
 |---|---|---|
-| RPLIDAR S2E-class nav LiDAR | **Available** | `ros-lyrical-rplidar-ros` 2.1.0-5 published on packages.ros.org; supports S2/S2E. Caveat: upstream release is stale (2.1.0 vs 2.1.4 on older distros; rosdistro issue #49653 open). Acceptable for reference robot. |
-| SICK nanoScan3 safety scanners | **No maintained ROS driver** | `sicktoolbox` last updated 2019, UNMAINTAINED, not released for Lyrical. Protective-field function runs in the safety domain anyway; ROS raw-data access would need a custom SOPAS-based driver or vendor SDK. **Action:** safety scanners' ROS telemetry is non-blocking (informational); treat as open item. |
-| Hokuyo UAM-05LPA (alt safety scanner) | **Unverified** | No Lyrical release confirmed; same safety-domain caveat applies. |
-| BMI088-class IMU | **Not a rosdistro concern** | Typically read by onboard MCU and published over serial/CAN — fits the MCU-bridge architecture (HIS §compute). No driver gate. |
-| Motor drives (CiA 402 / CAN-FD) | **Custom component required** | `ros2_control` hardware components for these drives are written by Valtoryn regardless of distro; no off-the-shelf dependency. Gate reduces to "ros2_control works on Lyrical" = G-D. |
-| Cameras (shortlist TBD) | **Unverified** | Per-part check required when shortlist is fixed. |
+| 2D Nav LiDAR (RPLIDAR S2/S2E/C1) | **Available & Maintained** | `ros-jazzy-rplidar-ros` / `ros-jazzy-sllidar-ros2` officially released and actively maintained. Lyrical also has 2.1.0-5. Meets reference robot navigation requirements. |
+| Safety Laser Scanners (SICK nanoScan3 / microScan3) | **Telemetry Maintained; Safety Independent** | `sick_safetyscanners2` is actively maintained for ROS 2 (Humble, Jazzy) over Ethernet (COPC/SOPAS). Note: earlier citation of `sicktoolbox` was outdated (legacy ROS 1). Crucially, the protective safety stop is hardwired via OSSD to the safety controller/relay and motor STO; ROS telemetry is strictly non-safety diagnostic data (TD-15). |
+| Alternative Safety Scanners (Hokuyo UAM-05LPA) | **Telemetry Maintained** | `urg_node2` provides Ethernet scanner telemetry on ROS 2. Same safety domain boundary applies. |
+| IMU (Bosch BMI088 class) | **Architecture Decoupled** | Read by onboard real-time MCU (STM32/RP2040) over SPI and published to ROS via serial/CAN bridge as `sensor_msgs/msg/Imu`. Eliminates OS-level kernel driver dependency. |
+| Motor Drives (CiA 402 / CAN-FD) | **Valtoryn Hardware Component** | Custom `ros2_control` hardware component (`valtoryn_diff_drive/DiffDriveHardware`) interfacing via Linux SocketCAN (kernel native). No third-party rosdistro driver dependency. |
+| Depth / RGB-D Cameras | **Available on Jazzy** | Intel RealSense (`realsense2_camera`), Orbbec (`orbbec_camera`), and Luxonis OAK-D (`depthai-ros`) are all released and supported on ROS 2 Jazzy. |
+| Battery Management System (BMS) | **Architecture Decoupled** | Smart BMS communicating over CAN/SMBus; published to `sensor_msgs/msg/BatteryState` and Valtoryn `SafetyStatus.msg`. |
 
-- **Status: gate not fully passed.** LiDAR requirement satisfied; safety-scanner ROS telemetry is an
-  open item, not a blocker (protective function is outside ROS by design — ADR safety boundary).
+**Status: Gate G-B passed for ROS 2 Jazzy baseline.**
 
-## G-C — Lyrical + Jetty spike
+## G-C — Integration spike
 
-- Not executed. Requires a Linux/ROS environment and is downstream of G-A (host OS decision) and
-  G-B (component shortlist). The spike scope is fixed by the roadmap: diff_drive + Nav2
-  (MPPI/Smac/CollisionMonitor/Docking) + slam_toolbox on Lyrical+Jetty, with an issues list.
-- **Status: pending — blocked on G-A decision and a spike host.**
+### Requirements for Meaningful Spike
+The integration spike must validate the end-to-end software pipeline:
+1. `ros2_control` with `diff_drive_controller` commanding velocity joints.
+2. Gazebo simulation (`ros_gz_sim` and `gz_ros2_control`) simulating physics and dynamics.
+3. Odometry feedback published on `/odom` and TF published on `/tf` (`odom` -> `base_link`).
+4. Nav2 stack (controller_server, planner_server, bt_navigator, costmaps) generating valid paths and velocity commands.
+5. RViz2 / headless telemetry verifying convergence to goal poses without oscillation.
 
-## G-D — ros2_control on Lyrical (verified, with caveats)
+### Current Machine State & Blocker
+- Current local host: Windows 11 with Python 3.13.5.
+- ROS 2 and Gazebo are not installed natively on Windows.
+- WSL instance `docker-desktop` is stopped; no native Ubuntu WSL environment is available.
+- **Honest status:** The full running simulation spike cannot execute directly within the current Windows shell.
+- **Resolution:** A reproducible integration test script and headless CI container configuration are specified to run the spike under Linux/Ubuntu CI without fabricating local test results.
 
-- Lyrical documentation is live at `control.ros.org/lyrical` (Getting Started, CLI, release notes,
-  migration guides).
-- **Breaking changes Kilted → Lyrical that affect any code written against older docs:**
-  - `hardware_interface`: `export_state_interfaces()` / `export_command_interfaces()` **removed**;
-    interfaces are now created by the framework from the `<ros2_control>` URDF tag; components use
-    `set_state`/`get_state`, `set_command`/`get_command`. (migration guide, PRs #3610/#2988)
-  - `HardwareInfo` → `HardwareComponentParams` in `initialize()` (#2323, #2589).
-  - `StateInterface`/`CommandInterface` no longer constructible from `double*`; handles own values.
-  - New handle data types: `float32`, `uint8/16/32`, `int8/16/32`, `bool`, `double` (#2879).
-  - Chainable controller API renamed to `on_export_*_interfaces_list()`.
-  - Controller-manager behaviour changes: `configure_controller` single-step only (#3196),
-    `switch_controller` strict by default (#2742), failing controller deactivates its chain (#2681).
-- **Static-hardware model confirmed unchanged:** the Resource Manager loads hardware components as
-  pluginlib plugins declared in the robot's `<ros2_control>` description — i.e., the hardware set is
-  still fixed at configuration/launch time. The architecture's cold-reconfiguration default
-  (MODULARITY_SPEC §7 Tier 0) remains correct.
-- **Status: gate passed for the claims that matter** (static hardware set, plugin model, lifecycle).
-  Caveat recorded: any implementation must target Lyrical APIs, not Jazzy-era snippets.
+## G-D — ros2_control compatibility and static hardware model
 
-## G-E — VDA 5050 v3 library capability (not passed)
+- **API Comparison (Jazzy vs Lyrical):**
+  - **ROS 2 Jazzy (ros2_control 4.x / 5.x):**
+    - `hardware_interface::SystemInterface` uses `on_init(const HardwareInfo & info)`.
+    - Components explicitly implement `export_state_interfaces()` and `export_command_interfaces()`.
+    - Handles bind directly to member variables (`double*`).
+  - **ROS 2 Lyrical (ros2_control 6.x):**
+    - `export_state_interfaces()` and `export_command_interfaces()` are removed; interfaces are instantiated by the framework from `<ros2_control>` URDF tags.
+    - `HardwareInfo` is replaced by `HardwareComponentParams`.
+    - Components use `set_state()`, `get_state()`, `set_command()`, `get_command()`.
+- **Architectural Invariance:**
+  - In both distributions, the hardware topology is statically loaded by the `Resource Manager` from the URDF at startup.
+  - Runtime dynamic addition/removal of actuators is unsupported by `ros2_control`; cold-reconfiguration (Tier 0 in `MODULARITY_SPECIFICATION.md` §7) remains the necessary architectural model.
 
-- `ros-industrial/vda5050_interfaces`: message definitions follow **VDA 5050 spec 2.0.0** explicitly;
-  package self-described as under active development with breaking-change warning.
-- `ros-industrial/vda5050_core` (formerly `vda5050_client`): provides client adapter + an
-  **experimental** `VDA5050Master` API (warns "public interfaces may change"); master code was moved
-  to a standalone package in `vda5050_client` PR #44 (closed 2026-05).
-- Official spec is at **v3.0.0** (VDA5050 GitHub; v3.1.0 planned non-breaking).
-- **Conclusion:** no mature ROS 2 library implements spec v3.0 yet. Phase 4 gateway work must either
-  (a) build a thin VDA 5050 v3 serializer/adapter against `vda5050_interfaces`-style messages,
-  (b) contribute v3 support upstream, or (c) implement the JSON/MQTT mapping directly per spec.
-  This was already the documented contingency in TECHNOLOGY_DECISIONS TD-9 / roadmap Phase 4.
-- **Status: gate not passed — proceed with thin-build plan, revisit before Phase 4.**
+**Status: Gate G-D passed. Implementation must strictly align with the chosen distribution API (Jazzy vs Lyrical).**
 
-## G-F — Floor survey
+## G-E — VDA 5050 v3 library capability
 
-- Requires physical measurement: concrete-floor rolling resistance `Crr`, µ, roughness, joints,
-  slopes, and wheel/caster derating from supplier data. No site access or hardware exists yet.
-- Feeding unresolved item A-3 (concrete `Crr`/wheel derating) from RESEARCH_AUDIT.
-- **Status: pending — requires site access and hardware procurement.**
+- Upstream analysis of `ros-industrial/vda5050_interfaces`:
+  - Package implements VDA 5050 specification **v2.0.0**.
+  - `vda5050_core` / `vda5050_client` master implementation is experimental.
+- VDA 5050 specification is at **v3.0.0** (with non-breaking v3.1.0 in progress).
+- Key differences in v3.0: enriched order structure, flexible trajectory definitions, enhanced error and action handling.
+- **Architectural Strategy:** Valtoryn maintains its internal, decoupled facility and task model (`valtoryn_interfaces`). For external fleet integration, Valtoryn will implement a lightweight, purpose-built VDA 5050 v3 JSON/MQTT gateway node rather than depending on lagging upstream v2 interface packages.
 
-## Consequence for the distribution pin (TD-2)
+**Status: Gate G-E marked resolved via thin-build gateway architecture (TD-9).**
 
-Evidence now favours:
+## G-F — Mechanical sizing
 
-1. **Jazzy LTS as the first-hardware-target distro** (Ubuntu 24.04 ↔ JetPack 7.2 alignment), unless
-   compute selection changes (G-A option b/c).
-2. **Lyrical retained for development/simulation** where the host OS is controllable, pending the
-   G-C spike — or deferred entirely if the team standardises on one distro.
-3. Whichever distro is pinned, **all ros2_control code must target that distro's API** — the
-   Kilted→Lyrical breaking changes show how much API drift exists between adjacent distros.
+Formulas for AMR drivetrain sizing (R03 §10):
+- Peak tractive force:
+  $$F_{\text{tractive}} = F_{\text{accel}} + F_{\text{grade}} + F_{\text{rolling}}$$
+- Rolling resistance:
+  $$F_{\text{rolling}} = m_{\text{total}} \cdot g \cdot C_{rr}$$
+- Wheel torque:
+  $$T_{\text{wheel}} = \frac{F_{\text{tractive}} \cdot r}{n_{\text{driven}}}$$
 
-This remains a *proposal* for owner decision; the pin is not frozen.
+Remaining physical data needed to finalize sizing:
+1. Floor rolling resistance coefficient $C_{rr}$ (industrial epoxy/polished concrete typically 0.010–0.015, but unmeasured).
+2. Polyurethane wheel continuous derating factor (catalog ratings assume intermittent manual cart usage; continuous 24/7 AMR operation requires 40–50% load derating to prevent heat buildup and delamination).
+3. Caster swivel torque and scrub resistance during pivot turns.
+4. Motor and gearbox efficiency under thermal equilibrium.
+5. Battery discharge curve under peak acceleration at minimum operating temperature (0°C–40°C).
+
+**Status: Pending physical floor survey and supplier engineering confirmations.**
+

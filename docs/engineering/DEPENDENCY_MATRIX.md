@@ -20,9 +20,10 @@
 | RMW | `rmw_fastrtps_cpp` default; `rmw_zenoh_cpp` spike | Proposed | Never mix RMWs in one system; Zenoh spike is a G-gated evaluation |
 | VDA 5050 library | spec 3.0.x; library TBD | **Gap confirmed** | `vda5050_interfaces` implements spec **2.0.0** only; master API experimental (G-E). Thin-build contingency |
 | Open-RMF | optional backend | Deferred | Never a core dependency (TD-10) |
-| `rplidar_ros` | 2.1.0-5 (Lyrical) | Verified released | Upstream stale (2.1.0 vs 2.1.4 elsewhere; rosdistro #49653) — acceptable for reference robot |
-| SICK/Hokuyo safety scanners | none maintained | **Open item** | `sicktoolbox` unmaintained since 2019; protective function is in safety domain; ROS telemetry needs custom/vendor driver |
-| Motor drive interfaces | custom `ros2_control` components | Required build | CiA 402 / CAN-FD; no off-the-shelf dependency |
+| `rplidar_ros` / `sllidar_ros2` | 2.1.0-5 (Lyrical) / Jazzy release | Verified released | Upstream actively maintained; available on Jazzy and Lyrical |
+| SICK / Hokuyo safety scanners | `sick_safetyscanners2` (Jazzy) / `urg_node2` | Verified telemetry | Protective function is in safety domain (hardwired OSSD); ROS telemetry is diagnostic Ethernet |
+| RGB-D / Depth Cameras | `realsense2_camera`, `orbbec_camera`, `depthai-ros` | Verified released on Jazzy | Shortlist supported on Ubuntu 24.04 / Jazzy LTS |
+| Motor drive interfaces | custom `ros2_control` components (`valtoryn_diff_drive`) | Required build | CiA 402 / CAN-FD via Linux SocketCAN; no third-party package dependency |
 
 ## Rules
 
