@@ -9,7 +9,7 @@
     within a major version once released. Status: proposed interfaces — not yet
     implemented or validated on any ROS distribution.
   </description>
-  <maintainer email="valtoryn@example.com">Valtoryn</maintainer>
+  <maintainer email="bhogesara.ram23@gmail.com">Ram Bhogesara</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

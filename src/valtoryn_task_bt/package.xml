@@ -8,7 +8,7 @@
     Status: proposed skeleton — BT XML only; node bindings and registration land
     in Phase 3. Not runnable.
   </description>
-  <maintainer email="valtoryn@example.com">Valtoryn</maintainer>
+  <maintainer email="bhogesara.ram23@gmail.com">Ram Bhogesara</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

@@ -1,7 +1,6 @@
 # Query the capability set of this robot or a named module.
 # Status: proposed interface — not implemented.
 
----
 string module_instance       # empty = whole robot
 ---
 valtoryn_interfaces/Capability[] capabilities

@@ -47,15 +47,17 @@ def inertial_mass_xml(parent: ET.Element, mass: float, ix: float, iy: float, iz:
     )
 
 
-def cylinder_geom(parent: ET.Element, radius: float, length: float, axis="1 0 0"):
+def cylinder_geom(parent: ET.Element, radius: float, length: float):
+    # In URDF, cylinders align along the Z axis by default. Rotating by roll=pi/2
+    # aligns the cylinder's symmetry axis with the Y axis (the wheel rotational axis).
     geom = ET.SubElement(parent, "visual")
-    ET.SubElement(geom, "origin", xyz="0 0 0", rpy="0 0 0")
+    ET.SubElement(geom, "origin", xyz="0 0 0", rpy="1.570796 0 0")
     c = ET.SubElement(geom, "geometry")
     ET.SubElement(c, "cylinder", radius=fmt(radius), length=fmt(length))
     ET.SubElement(geom, "material", name="valtoryn_dark")
     # collision identical
     col = ET.SubElement(parent, "collision")
-    ET.SubElement(col, "origin", xyz="0 0 0", rpy="0 0 0")
+    ET.SubElement(col, "origin", xyz="0 0 0", rpy="1.570796 0 0")
     cc = ET.SubElement(col, "geometry")
     ET.SubElement(cc, "cylinder", radius=fmt(radius), length=fmt(length))
 
@@ -75,7 +77,9 @@ def generate(config: dict) -> ET.Element:
     wheel_r = float(p.get("wheel_radius", 0.075))
     sep = float(p.get("wheel_separation", 0.6))
     wheel_w = float(p.get("wheel_width", 0.05))
+    wheelbase = float(p.get("wheelbase", sep))
     half_sep = sep / 2.0
+    half_base = wheelbase / 2.0
     # [EST] chassis footprint until mechanical design exists
     chassis_l, chassis_w, chassis_h = 0.8, sep + 0.2, 0.25
 
@@ -96,26 +100,40 @@ def generate(config: dict) -> ET.Element:
     for suffix, (sx, sy) in WHEEL_POSITIONS.items():
         link = ET.SubElement(robot, "link", name=f"wheel_{suffix}_link")
         cylinder_geom(link, wheel_r, wheel_w)
+        inertial_mass_xml(link, mass=2.5, ix=0.005, iy=0.009, iz=0.005)  # [EST] wheel inertia
         joint = ET.SubElement(robot, "joint", name=f"wheel_{suffix}_joint", type="continuous")
         ET.SubElement(joint, "parent", link="base_link")
         ET.SubElement(joint, "child", link=f"wheel_{suffix}_link")
         ET.SubElement(
             joint, "origin",
-            xyz=f"{fmt(sx * half_sep)} {fmt(sy * half_sep)} {fmt(wheel_r)}",
+            xyz=f"{fmt(sx * half_base)} {fmt(sy * half_sep)} {fmt(wheel_r)}",
             rpy="0 0 0",
         )
-        axis = "0 1 0" if suffix in ("fl", "fr") else "0 1 0"  # lateral axis for diff drive
-        ET.SubElement(joint, "axis", xyz=axis)
+        ET.SubElement(joint, "axis", xyz="0 1 0")
 
-    # ros2_control hardware declaration — plugin name is a Phase 2 placeholder.
+    # ros2_control hardware declaration
     rc = ET.SubElement(robot, "ros2_control", name="valtoryn_hw", type="system")
     hw = ET.SubElement(rc, "hardware")
-    ET.SubElement(hw, "plugin", text="valtoryn_diff_drive/DiffDriveHardware")
+    plugin_el = ET.SubElement(hw, "plugin")
+    plugin_el.text = "valtoryn_diff_drive/DiffDriveHardware"
     for suffix in WHEEL_POSITIONS:
         j = ET.SubElement(hw, "joint", name=f"wheel_{suffix}_joint")
         ET.SubElement(j, "command_interface", name="velocity")
         ET.SubElement(j, "state_interface", name="position")
         ET.SubElement(j, "state_interface", name="velocity")
+
+    # Gazebo simulation integration when targeting simulation profile
+    target_profile = config.get("target", {}).get("profile", "simulation")
+    if target_profile in ("simulation", "hil"):
+        gz_plugin = ET.SubElement(robot, "gazebo")
+        p_el = ET.SubElement(
+            gz_plugin,
+            "plugin",
+            filename="gz_ros2_control-system",
+            name="gz_ros2_control::GazeboSimROS2ControlPlugin",
+        )
+        param_el = ET.SubElement(p_el, "parameters")
+        param_el.text = "$(find valtoryn_bringup)/config/controllers.yaml"
 
     return robot
 

@@ -3,7 +3,6 @@
 # this service exposes it read-only to ROS nodes.
 # Status: proposed interface — not implemented.
 
----
 string module_instance
 ---
 string manifest_yaml         # serialised module manifest

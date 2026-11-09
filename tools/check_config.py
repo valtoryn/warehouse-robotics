@@ -53,15 +53,39 @@ def validate(instance, schema: dict, label: str) -> list[str]:
     return errors
 
 
-def parse_range(spec: str):
-    """Minimal SemVer-range check for ^x.y.z / x.y.z. Returns (gte, lt) or None."""
+def parse_range(spec: str) -> tuple[str | None, str | None] | None:
+    """SemVer-range check supporting ^x.y.z, bare x.y.z, and compound range constraints."""
     spec = spec.strip()
     if spec.startswith("^"):
         parts = spec[1:].split(".")
         if len(parts) < 3:
             return None
-        major, minor, patch = (int(p.split("-")[0].split("+")[0]) for p in parts[:3])
-        return (f"{major}.{minor}.{patch}", f"{major + 1}.0.0" if major else None)
+        try:
+            major, minor, patch = (int(p.split("-")[0].split("+")[0]) for p in parts[:3])
+        except ValueError:
+            return None
+        gte = f"{major}.{minor}.{patch}"
+        if major > 0:
+            lt = f"{major + 1}.0.0"
+        elif minor > 0:
+            lt = f"0.{minor + 1}.0"
+        else:
+            lt = f"0.0.{patch + 1}"
+        return (gte, lt)
+
+    # Compound ranges, e.g. ">=1.0.0 <2.0.0"
+    if any(op in spec for op in (">=", "<=", ">", "<")):
+        gte = None
+        lt = None
+        for token in spec.split():
+            token = token.strip()
+            if token.startswith(">="):
+                gte = token[2:].strip()
+            elif token.startswith("<"):
+                lt = token[1:].strip()
+        if gte or lt:
+            return (gte, lt)
+
     parts = spec.split(".")
     if len(parts) >= 3:
         try:
@@ -110,10 +134,21 @@ def check_config(path: Path, config_schema: dict, manifest_schema: dict) -> list
         return errors
 
     modules = config["modules"]
+    seen_instances: dict[str, int] = {}
     seen_mounts: dict[str, str] = {}
     manifests: dict[str, dict] = {}
+    all_declared_frames: set[str] = {"base_link", "base_footprint", "odom", "map"}
 
+    # First pass: check instance uniqueness, load and validate manifests, gather declared frames
     for mod in modules:
+        inst = mod.get("instance", "")
+        if inst in seen_instances:
+            errors.append(
+                f"{path.name}: duplicate module instance name '{inst}' "
+                f"(instances must be unique per robot)"
+            )
+        seen_instances[inst] = seen_instances.get(inst, 0) + 1
+
         mpath = manifest_path_for(mod["type"])
         if not mpath.exists():
             errors.append(f"{path.name}: module '{mod['type']}' has no manifest at {rel(mpath)}")
@@ -123,10 +158,20 @@ def check_config(path: Path, config_schema: dict, manifest_schema: dict) -> list
         except yaml.YAMLError as exc:
             errors.append(f"{mpath}: YAML parse error: {exc}")
             continue
-        errors += validate(manifest, manifest_schema, str(rel(mpath)))
-        if errors:
+        errs = validate(manifest, manifest_schema, str(rel(mpath)))
+        if errs:
+            errors += errs
             continue
         manifests[mod["type"]] = manifest
+
+        for f in (manifest.get("frames") or {}).get("declared", []):
+            all_declared_frames.add(f)
+
+    # Second pass: cross-module and fit checks (C1 - C3)
+    for mod in modules:
+        manifest = manifests.get(mod["type"])
+        if not manifest:
+            continue
 
         if not range_satisfied(mod["version"], manifest["module_version"]):
             errors.append(
@@ -134,7 +179,26 @@ def check_config(path: Path, config_schema: dict, manifest_schema: dict) -> list
                 f"does not match manifest version {manifest['module_version']}"
             )
 
-        for mount in (mod.get("mount") or {}).get("occupied_mounts", []):
+        # Gate C2: Parent frame must exist in declared frames or REP-105 frames
+        parent_frame = mod.get("parent_frame")
+        if parent_frame and parent_frame not in all_declared_frames:
+            errors.append(
+                f"{path.name}: module '{mod['instance']}' parent_frame '{parent_frame}' "
+                f"is not declared by any module or REP-105 standard frame (gate C2)"
+            )
+
+        # Gate C2: Mount type compatibility and occupancy
+        mod_mount = mod.get("mount") or {}
+        declared_mounts = (manifest.get("frames") or {}).get("mounts", [])
+        if mod_mount and declared_mounts:
+            declared_types = {m.get("mount_type") for m in declared_mounts}
+            if mod_mount.get("mount_type") not in declared_types:
+                errors.append(
+                    f"{path.name}: module '{mod['instance']}' mount_type '{mod_mount.get('mount_type')}' "
+                    f"is not declared in its manifest (declared: {sorted(declared_types)})"
+                )
+
+        for mount in mod_mount.get("occupied_mounts", []):
             if mount in seen_mounts:
                 errors.append(
                     f"{path.name}: mount '{mount}' claimed by both "
@@ -148,6 +212,8 @@ def check_config(path: Path, config_schema: dict, manifest_schema: dict) -> list
                 f"{path.name}: module '{mod['instance']}' is unvalidated but target profile "
                 f"is {config['target']['profile']} — cannot pass gate C3 on motion/safety paths"
             )
+
+    return errors
 
     return errors
 
