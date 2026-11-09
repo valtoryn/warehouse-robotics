@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- Valtoryn Multi-Waypoint Warehouse Route Mission.
+     Navigates across multiple warehouse stations: Pick 1 -> Drop 1 -> Drop 2 -> Staging.
+-->
+<root BTCPP_format="4">
+  <BehaviorTree ID="WarehouseRouteMission">
+    <Sequence name="multi_waypoint_mission">
+      <NavigateToPose name="route_to_pick_1" position_x="-7.0" position_y="4.0" orientation_yaw="0.0"/>
+      <DockRobot name="dock_pick_1" station_id="station_pick_1"/>
+      <PayloadPickStub name="pick_tote_002" station_id="station_pick_1" payload_id="tote_002"/>
+
+      <NavigateToPose name="route_to_drop_1" position_x="7.0" position_y="4.0" orientation_yaw="0.0"/>
+      <DockRobot name="dock_drop_1" station_id="station_drop_1"/>
+      <PayloadDropStub name="drop_tote_002" station_id="station_drop_1" payload_id="tote_002"/>
+
+      <NavigateToPose name="route_to_drop_2" position_x="7.0" position_y="-4.0" orientation_yaw="-1.57"/>
+      <DockRobot name="dock_drop_2" station_id="station_drop_2"/>
+
+      <NavigateToPose name="route_to_home" position_x="-7.0" position_y="0.0" orientation_yaw="0.0"/>
+    </Sequence>
+  </BehaviorTree>
+</root>

@@ -1,22 +1,25 @@
 <?xml version="1.0"?>
-<!-- Valtoryn task behavior tree v0 — reference AMR mission skeleton.
-     Status: PROPOSED skeleton. Node bindings to Nav2/opennav_docking actions are
-     Phase 3 work (docs/engineering/DEVELOPMENT_ROADMAP.md). This file defines the
-     intended task composition only; it is not runnable yet.
-     See docs/architecture/SYSTEM_ARCHITECTURE.md layer L5 and R06 section 8.8. -->
+<!-- Valtoryn task behavior tree — reference AMR warehouse mission.
+     Executes NavigateToPose to pick station, simulated docking, payload pick stub,
+     navigation to drop station, simulated docking, payload drop stub, and return.
+-->
 <root BTCPP_format="4">
   <BehaviorTree ID="ValtorynRefAmrMission">
-    <Sequence name="mission">
-      <!-- Phase 3: bind NavigateToPose to nav2_msgs/NavigateToPose action -->
-      <NavigateToPose name="go_to_pick"/>
-      <!-- Phase 3: bind DockRobot to opennav_docking action; verify dock asset
-           from facility model (FacilityAsset.asset_type == "pick_station") -->
-      <DockRobot name="dock_for_pick"/>
-      <!-- Payload pick is a payload-module capability; stub until payload modules exist -->
-      <AlwaysSuccess name="payload_pick_stub"/>
-      <NavigateToPose name="go_to_drop"/>
-      <DockRobot name="dock_for_drop"/>
-      <AlwaysSuccess name="payload_drop_stub"/>
+    <Sequence name="warehouse_mission">
+      <!-- 1. Transit to Pick Station 1 -->
+      <NavigateToPose name="navigate_to_pick_1" position_x="-7.0" position_y="4.0" orientation_yaw="0.0"/>
+      <!-- 2. Docking at Pick Station 1 -->
+      <DockRobot name="dock_pick_1" station_id="station_pick_1"/>
+      <!-- 3. Explicit non-functional payload pick stub -->
+      <PayloadPickStub name="pick_tote_001" station_id="station_pick_1" payload_id="tote_001"/>
+      <!-- 4. Transit along Aisle 1 to Drop Station 1 -->
+      <NavigateToPose name="navigate_to_drop_1" position_x="7.0" position_y="4.0" orientation_yaw="0.0"/>
+      <!-- 5. Docking at Drop Station 1 -->
+      <DockRobot name="dock_drop_1" station_id="station_drop_1"/>
+      <!-- 6. Explicit non-functional payload drop stub -->
+      <PayloadDropStub name="drop_tote_001" station_id="station_drop_1" payload_id="tote_001"/>
+      <!-- 7. Return to Staging Bay -->
+      <NavigateToPose name="return_to_staging" position_x="-7.0" position_y="0.0" orientation_yaw="0.0"/>
     </Sequence>
   </BehaviorTree>
 </root>
