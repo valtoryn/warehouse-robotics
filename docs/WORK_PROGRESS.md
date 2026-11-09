@@ -1,7 +1,7 @@
 # Work progress — Phase 1 decision gates & Phase 2 implementation
 
 > Persistent checkpoint for multi-session work. Update after each completed milestone.
-> Last updated: 2026-11-09.
+> Last updated: 2026-11-10.
 
 ## Completed work
 
@@ -21,15 +21,12 @@
   - Fixed wheel cylinder orientation in `tools/gen_urdf.py` (added `rpy="1.570796 0 0"` roll so cylinder aligns with rotation axis Y).
   - Fixed `tools/gen_launch.py` bug passing URDF path directly to `robot_state_publisher` and `controller_manager` parameters rather than string parameter dictionary `{'robot_description': robot_desc_content}`, added `enable_odom_tf: true`, and added standard local and global costmaps to Nav2 parameters.
   - Fixed `tools/check_config.py` SemVer parser bug where `0.x.y` caret ranges (e.g. `^0.1.0`) allowed breaking major versions; added compound range parsing (`>=1.0.0 <2.0.0`), unique module instance validation, and Gate C2 `parent_frame` and `mount_type` validation.
-- **Phase 2 Hardware Abstraction & Backend Architecture:**
+- **Phase 2 Hardware Abstraction & Controller Bringup Root-Cause Fix:**
+  - **Diagnosed and resolved GitHub Actions run #11 failure:** `tools/gen_urdf.py` generated `<joint>` tags as children of `<hardware>` instead of `<ros2_control>`. `ros2_control`'s parser requires `<joint>` to be a direct child of `<ros2_control>`; as a result, `DiffDriveHardware::on_init()` received 0 joints, failed with `CallbackReturn::ERROR`, and prevented `diff_drive_controller` from activating and publishing `/diff_drive_controller/odom` and `/tf`.
+  - Fixed `tools/gen_urdf.py` so `<joint>` elements are created directly under `<ros2_control>`. Added regression test in `tests/test_tools.py` asserting all joints are children of `<ros2_control>` and `<hardware>` contains 0 joints.
   - Enforced fail-closed safety rule in `src/valtoryn_diff_drive/src/diff_drive_hardware.cpp`: physical backend (`mock_hardware == false`) fails with error in `on_init()`, `on_activate()`, `read()`, and `write()` until genuine SocketCAN motor drivers are implemented. No fake feedback or placeholder success.
-  - Added strict joint uniqueness verification and comprehensive state interface validation (ensuring both `position` and `velocity` interfaces exist per joint).
-  - Added finite command check (`std::isfinite`) preventing NaN/Inf motor commands; added buffer zeroing on `on_deactivate()`.
-  - Resolved backend selection architecture via `target.backend` (`mock`, `gazebo`, `physical`) in `schemas/robot-config.schema.json` and `tools/check_config.py`:
-    - `mock`: uses `valtoryn_diff_drive/DiffDriveHardware` with loopback.
-    - `gazebo`: uses standard `gz_ros2_control/GazeboSimSystem` and `<gazebo>` system plugin.
-    - `physical`: uses `valtoryn_diff_drive/DiffDriveHardware` with `mock_hardware: false` (fails closed).
-  - Standardized reference configuration `config/robots/ref-amr-diff-v1.yaml` on `target.ros_distro: "jazzy"` and `target.backend: "mock"`.
+  - Added strict joint uniqueness verification, comprehensive state interface validation (ensuring both `position` and `velocity` interfaces exist per joint), and finite command checks (`std::isfinite`).
+  - Resolved backend selection architecture via `target.backend` (`mock`, `gazebo`, `physical`) in `schemas/robot-config.schema.json` and `tools/check_config.py`.
 - **Phase 2 Real Lifecycle Supervision:**
   - Converted `src/valtoryn_lifecycle/` from local-only state machine into a functioning ROS 2 supervisor with decoupled client transport architecture:
     - `RosLifecycleClient`: communicates via ROS 2 `lifecycle_msgs.srv.ChangeState` and `GetState` services with timeout handling, future spinning, and response verification.
@@ -37,10 +34,10 @@
     - `RosLifecycleSupervisorNode`: ROS 2 node publishing periodic `diagnostic_msgs.msg.DiagnosticArray` on `/diagnostics`.
     - Reverse-order shutdown (`shutdown_all`, `deactivate_all`) and dependency fault cascading: failure in a critical lower-tier node triggers deactivation of higher-tier dependents via real service calls. Never claims transitions occurred without node confirmation.
 - **Phase 2 Motion Proving & Automated Integration Tests:**
-  - Created `tests/test_ros_motion.py`: tests active controllers (`ros2 control list_controllers`), claimed hardware interfaces, forward motion ($x$ displacement, wheel speed matching $v/r$), reverse motion, pure rotation ($\Delta\theta$ yaw change), stopping, command timeout enforcement (wheel speeds zero after `cmd_vel_timeout`), and `/tf` broadcast (`odom -> base_link`).
-  - Created `tests/test_ros_lifecycle.py`: tests ROS lifecycle service communication, unavailable node handling, and diagnostic array publishing.
+  - Created and refined `tests/test_ros_motion.py`: tests active controllers (`ros2 control list_controllers`), claimed hardware interfaces, forward motion ($x$ displacement, wheel speed matching $v/r$), reverse motion, pure rotation ($\Delta\theta$ yaw change), stopping, command timeout enforcement (wheel speeds zero after `cmd_vel_timeout`), and `/tf` broadcast (`odom -> base_link`).
+  - Created and expanded `tests/test_ros_lifecycle.py`: tests full lifecycle state transitions, timeout handling, transition rejection, reverse shutdown, fault cascading, and diagnostics publishing against live background ROS lifecycle service nodes over DDS.
 - **Integration Spike Runner & Reproducible CI:**
-  - Upgraded `tools/run_spike.py` to a 7-stage pipeline: preflight, colcon build across all packages, artifact generation, headless bringup, controller verification, motion/odometry verification, and automated integration test execution.
+  - Upgraded `tools/run_spike.py` to a 7-stage pipeline with safe log capture to `launch.log`, early process exit/crash detection, and automated log dumping on failures.
   - Updated GitHub Actions workflow (`.github/workflows/checks.yml`) to add a containerized `ros-jazzy-build-and-test` job running in `osrf/ros:jazzy-desktop`, compiling all packages and executing the integration spike.
 
 ## Files created or modified
@@ -59,18 +56,21 @@
 - `src/valtoryn_interfaces/msg/FacilityMap.msg` (explicit package prefixes)
 - `src/valtoryn_interfaces/CMakeLists.txt` (C++17 standard)
 - `src/valtoryn_diff_drive/CMakeLists.txt` (C++17 standard)
+- `src/valtoryn_diff_drive/src/diff_drive_hardware.cpp` (hardware safety, joint validation, logging)
 - `src/valtoryn_task_bt/CMakeLists.txt` (C++17 standard)
 - `src/valtoryn_lifecycle/package.xml` (ament_python lifecycle package)
 - `src/valtoryn_lifecycle/setup.py` (entry points)
 - `src/valtoryn_lifecycle/setup.cfg` (install scripts)
 - `src/valtoryn_lifecycle/valtoryn_lifecycle/__init__.py` (exports)
 - `src/valtoryn_lifecycle/valtoryn_lifecycle/lifecycle_supervisor.py` (real ROS 2 supervisor + diagnostics + transports)
+- `tools/gen_urdf.py` (fixed ros2_control joint hierarchy)
 - `tools/gen_launch.py` (enable_odom_tf: true, spawner timeouts)
-- `tools/run_spike.py` (7-stage build, launch, motion, and integration test runner)
-- `tests/test_lifecycle.py` (expanded to test transports, timeouts, failure handling, and shutdown order)
-- `tests/test_ros_motion.py` (new automated ROS 2 motion integration tests)
-- `tests/test_ros_lifecycle.py` (new automated ROS 2 lifecycle integration tests)
-- `.github/workflows/checks.yml` (added containerized ros-jazzy-build-and-test job)
+- `tools/run_spike.py` (7-stage build, launch, motion, and integration test runner with crash detection and log capture)
+- `tests/test_tools.py` (added test_ros2_control_joints_are_children_of_ros2_control)
+- `tests/test_lifecycle.py` (lifecycle supervisor unit tests)
+- `tests/test_ros_motion.py` (automated ROS 2 motion integration tests)
+- `tests/test_ros_lifecycle.py` (automated ROS 2 lifecycle integration tests)
+- `.github/workflows/checks.yml` (containerized ros-jazzy-build-and-test job)
 
 ## Validation results
 
@@ -78,7 +78,7 @@
 - `python tools/check_config.py`: OK (1 config, 2 manifests).
 - `python tools/check_interfaces.py`: OK (7 msgs, 2 srvs, package manifests and BT XML valid).
 - `python tools/simulate_kinematics.py config/robots/ref-amr-diff-v1.yaml`: OK (trajectory closure error: 0.002253 m).
-- `python -m unittest discover -s tests -p "test_*.py"`: 63 tests discovered (52 passed offline, 11 skipped pending live ROS 2 host runtime).
+- `python -m unittest discover -s tests -p "test_*.py"`: 68 tests discovered (53 passed offline, 15 skipped pending live ROS 2 host runtime).
 - `python tools/run_spike.py`: Correctly identifies Windows host missing Linux/ROS 2 prerequisites (exit code 2) and reports Docker container execution instructions without fabricating results.
 
 ## Commits and pushes
@@ -92,11 +92,14 @@
   - `6560c6d` feat(lifecycle): implement subsystem lifecycle supervisor and diagnostics
   - `dd27aee` test: expand unit test suite to 49 tests for lifecycle, backends, and kinematics
   - `6cfdb0b` docs: reconcile documentation drift and update work progress checkpoint
+  - `596a4ca` feat(lifecycle): implement real ROS 2 lifecycle service client and diagnostics transport
+  - `ebd648b` feat(bringup): add automated ROS motion tests, launch TF flags, and multi-stage spike runner
+  - `c38abd8` ci: add containerized ROS 2 Jazzy build and integration test workflow
+  - `f1663fe` docs: update work progress checkpoint with executable mock bringup milestone
 - New commits staged for publishing:
-  - `feat(lifecycle): implement real ROS 2 lifecycle service client and diagnostics transport`
-  - `feat(bringup): add automated ROS motion tests, launch TF flags, and multi-stage spike runner`
-  - `ci: add containerized ROS 2 Jazzy build and integration test workflow`
-  - `docs: update work progress checkpoint with executable mock bringup milestone`
+  - `fix(urdf): place joints directly under ros2_control and improve spike runner diagnostics`
+  - `test(ros): expand live lifecycle tests and refine motion test assertions`
+  - `docs: record run 11 root cause fix and bringup resolution in progress checkpoint`
 
 ## Remaining work
 
@@ -106,4 +109,4 @@
 
 ## Exact next action
 
-Stage, commit, and push Phase 2 executable mock robot, real lifecycle supervisor, and containerized CI workflow to `origin/main`. Report status to project owner.
+Stage, commit, and push the URDF joint hierarchy fix, spike runner improvements, and live lifecycle integration tests to `origin/main`. Monitor CI run.
