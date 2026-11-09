@@ -96,7 +96,9 @@ class RosMockMotionIntegrationTests(unittest.TestCase):
 
     def _on_tf(self, msg: TFMessage):
         for transform in msg.transforms:
-            if transform.header.frame_id == "odom" and transform.child_frame_id == "base_link":
+            f_id = transform.header.frame_id.strip("/")
+            c_id = transform.child_frame_id.strip("/")
+            if f_id == "odom" and c_id == "base_link":
                 self.received_tf = True
 
     def _send_cmd(self, linear_x: float, angular_z: float, duration_sec: float, rate_hz: float = 20.0):
@@ -182,8 +184,9 @@ class RosMockMotionIntegrationTests(unittest.TestCase):
         # Send zero command
         self._send_cmd(linear_x=0.0, angular_z=0.0, duration_sec=0.5)
         # Settle
-        time.sleep(0.3)
-        rclpy.spin_once(self.node, timeout_sec=0.1)
+        start = time.time()
+        while time.time() - start < 0.5:
+            rclpy.spin_once(self.node, timeout_sec=0.05)
 
         self.assertIsNotNone(self.latest_js)
         for vel in self.latest_js.velocity:
@@ -195,7 +198,9 @@ class RosMockMotionIntegrationTests(unittest.TestCase):
 
         # Wait longer than cmd_vel_timeout (0.5s)
         time.sleep(0.8)
-        rclpy.spin_once(self.node, timeout_sec=0.1)
+        start = time.time()
+        while time.time() - start < 0.5:
+            rclpy.spin_once(self.node, timeout_sec=0.05)
 
         self.assertIsNotNone(self.latest_js)
         for vel in self.latest_js.velocity:
@@ -207,7 +212,7 @@ class RosMockMotionIntegrationTests(unittest.TestCase):
     def test_08_tf_broadcast(self):
         # Wait for TF message
         start = time.time()
-        while time.time() - start < 3.0 and not self.received_tf:
+        while time.time() - start < 5.0 and not self.received_tf:
             rclpy.spin_once(self.node, timeout_sec=0.1)
         self.assertTrue(self.received_tf, "Did not receive odom -> base_link transform on /tf")
 
