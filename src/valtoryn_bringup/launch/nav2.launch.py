@@ -57,8 +57,8 @@ def generate_launch_description() -> LaunchDescription:
     # Standard Nav2 bringup launch with topic remapping to differential drive controller
     nav2_bringup = GroupAction(
         actions=[
-            SetRemap(src="/cmd_vel", dst="/diff_drive_controller/cmd_vel_unstamped"),
-            SetRemap(src="cmd_vel", dst="/diff_drive_controller/cmd_vel_unstamped"),
+            SetRemap(src="/cmd_vel", dst="/diff_drive_controller/cmd_vel"),
+            SetRemap(src="cmd_vel", dst="/diff_drive_controller/cmd_vel"),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     os.path.join(get_package_share_directory("nav2_bringup"), "launch", "bringup_launch.py")

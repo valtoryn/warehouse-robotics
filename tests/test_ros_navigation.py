@@ -114,10 +114,10 @@ class RosWarehouseNavigationTests(unittest.TestCase):
             PoseWithCovarianceStamped, "/amcl_pose", cls._on_amcl_pose, 10
         )
         cls.local_costmap_sub = cls.node.create_subscription(
-            OccupancyGrid, "/local_costmap/costmap_raw", cls._on_local_costmap, 10
+            OccupancyGrid, "/local_costmap/costmap", cls._on_local_costmap, 10
         )
         cls.global_costmap_sub = cls.node.create_subscription(
-            OccupancyGrid, "/global_costmap/costmap_raw", cls._on_global_costmap, 10
+            OccupancyGrid, "/global_costmap/costmap", cls._on_global_costmap, 10
         )
         cls.tf_sub = cls.node.create_subscription(
             TFMessage, "/tf", cls._on_tf, 50
@@ -236,18 +236,23 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         goal.pose.pose.orientation.z = math.sin(target_yaw / 2.0)
         goal.pose.pose.orientation.w = math.cos(target_yaw / 2.0)
 
-        send_future = self.action_client.send_goal_async(goal)
+        goal_handle = None
         start_time = time.time()
+        for attempt in range(3):
+            send_future = self.action_client.send_goal_async(goal)
+            wait_accept_start = time.time()
+            while time.time() - wait_accept_start < 5.0 and not send_future.done():
+                rclpy.spin_once(self.node, timeout_sec=0.1)
 
-        # Wait for goal acceptance
-        while time.time() - start_time < 5.0 and not send_future.done():
-            rclpy.spin_once(self.node, timeout_sec=0.1)
+            if send_future.done():
+                h = send_future.result()
+                if h.accepted:
+                    goal_handle = h
+                    break
+            for _ in range(10):
+                rclpy.spin_once(self.node, timeout_sec=0.1)
 
-        if not send_future.done():
-            return False, time.time() - start_time, float("inf"), float("inf")
-
-        goal_handle = send_future.result()
-        if not goal_handle.accepted:
+        if goal_handle is None or not goal_handle.accepted:
             return False, time.time() - start_time, float("inf"), float("inf")
 
         result_future = goal_handle.get_result_async()
@@ -256,7 +261,10 @@ class RosWarehouseNavigationTests(unittest.TestCase):
 
         duration = time.time() - start_time
         if not result_future.done():
-            goal_handle.cancel_goal_async()
+            cancel_future = goal_handle.cancel_goal_async()
+            t_cancel = time.time()
+            while time.time() - t_cancel < 3.0 and not cancel_future.done():
+                rclpy.spin_once(self.node, timeout_sec=0.1)
             return False, duration, float("inf"), float("inf")
 
         # Verify Nav2 result status is SUCCEEDED (4)
@@ -312,7 +320,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         while time.time() - start < 10.0 and self.latest_local_costmap is None:
             rclpy.spin_once(self.node, timeout_sec=0.1)
 
-        self.assertIsNotNone(self.latest_local_costmap, "No costmap received on /local_costmap/costmap_raw")
+        self.assertIsNotNone(self.latest_local_costmap, "No costmap received on /local_costmap/costmap")
         self.assertEqual(self.latest_local_costmap.header.frame_id, "odom")
         # Ensure at least some cells are marked as obstacles / cost > 0
         costs = list(self.latest_local_costmap.data)
