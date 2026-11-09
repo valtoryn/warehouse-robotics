@@ -96,10 +96,12 @@
   - `ebd648b` feat(bringup): add automated ROS motion tests, launch TF flags, and multi-stage spike runner
   - `c38abd8` ci: add containerized ROS 2 Jazzy build and integration test workflow
   - `f1663fe` docs: update work progress checkpoint with executable mock bringup milestone
+  - `b7ab1e3` fix(urdf): place joints directly under ros2_control and improve spike runner diagnostics
+  - `fc90ea3` test(ros): expand live lifecycle tests and refine motion test assertions
+  - `dea894d` docs: record run 11 root cause fix and bringup resolution in progress checkpoint
+  - `d7129b1` fix(bringup): parse tabular controller and interface status in spike runner and integration tests
 - New commits staged for publishing:
-  - `fix(urdf): place joints directly under ros2_control and improve spike runner diagnostics`
-  - `test(ros): expand live lifecycle tests and refine motion test assertions`
-  - `docs: record run 11 root cause fix and bringup resolution in progress checkpoint`
+  - `docs: update work progress checkpoint with controller status parsing fix`
 
 ## Remaining work
 
@@ -109,4 +111,4 @@
 
 ## Exact next action
 
-Stage, commit, and push the URDF joint hierarchy fix, spike runner improvements, and live lifecycle integration tests to `origin/main`. Monitor CI run.
+Stage, commit, and push the tabular controller status parsing fix in `tools/run_spike.py` and `tests/test_ros_motion.py`. Monitor CI run.
