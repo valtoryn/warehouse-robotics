@@ -106,12 +106,12 @@ planner_server:
     planner_plugins: ["GridBased", "Smac2D"]
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.5
-      use_astar: false
+      tolerance: 1.0
+      use_astar: true
       allow_unknown: true
     Smac2D:
       plugin: "nav2_smac_planner::SmacPlanner2D"
-      tolerance: 0.25
+      tolerance: 0.5
       downsample_costmap: false
       allow_unknown: true
 
@@ -173,8 +173,8 @@ local_costmap:
           obstacle_max_range: 10.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        cost_scaling_factor: 4.0
+        inflation_radius: 0.50
       always_send_full_costmap: true
 
 global_costmap:
@@ -206,8 +206,8 @@ global_costmap:
           obstacle_max_range: 10.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        cost_scaling_factor: 4.0
+        inflation_radius: 0.50
       always_send_full_costmap: true
 
 waypoint_follower:

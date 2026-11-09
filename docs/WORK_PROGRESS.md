@@ -165,7 +165,8 @@
   - `71a76c1` fix(simulation): elevate LiDAR above chassis deck and expand scenario timeouts
   - `6f3e8f3` fix(simulation): resolve aisle obstacle clearance, elevate LiDAR to 0.42m, and tune Nav2 controller
   - `4310d60` fix(simulation): tune wheel lateral friction for skid-steer, align spawn yaw, and disable FollowPath collision detection
-  - `fix(simulation)`: align scenario targets through central warehouse aisle and clear mission progression
+  - `5dc305d` fix(simulation): align scenario waypoints with central warehouse aisle
+  - `fix(nav2)`: enable A* in NavfnPlanner, tune inflation decay, and target open aisle lane
 
 ## Remaining work
 

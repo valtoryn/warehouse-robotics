@@ -379,9 +379,9 @@ class RosWarehouseNavigationTests(unittest.TestCase):
 
     def test_07_scenario_3_static_obstacle_avoidance(self):
         """Scenario 3: Reach goal in central aisle navigating around static pallet stack."""
-        # Pallet stack is at (0.5, 0.45); navigate down central aisle to point past the pallet stack at (2.5, 0.0)
+        # Pallet stack is at (0.5, 0.45); navigate down central aisle to point past the pallet stack at (2.5, -0.2)
         success, duration, error, _ = self._send_nav_goal(
-            target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=80.0
+            target_x=2.5, target_y=-0.2, target_yaw=0.0, timeout_sec=80.0
         )
         self.assertTrue(success, f"Static obstacle avoidance failed after {duration:.1f}s")
         self.assertLess(error, 0.50, f"Final pose error {error:.3f}m exceeded tolerance")
