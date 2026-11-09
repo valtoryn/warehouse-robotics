@@ -87,52 +87,32 @@
 - `tests/test_tools.py` (unit tests for sensor URDF generation and Gazebo friction)
 - `.github/workflows/checks.yml` (added gazebo-harmonic-nav2-simulation job)
 
-- `README.md` (updated evidence taxonomy and implementation baseline)
-- `docs/ARCHITECTURE_MILESTONE_REPORT.md` (updated with implementation addendum)
-- `docs/architecture/HARDWARE_ABSTRACTION.md` (documented backend architecture and fail-closed safety)
-- `docs/architecture/TECHNOLOGY_DECISIONS.md` (aligned active baseline on Jazzy Jalisco)
-- `docs/engineering/DEVELOPMENT_ROADMAP.md` (updated Phase 2 status)
-- `docs/engineering/DECISION_GATES.md` (updated with full evidence and options)
-- `docs/engineering/DEPENDENCY_MATRIX.md` (updated driver and Gazebo rows)
-- `docs/WORK_PROGRESS.md` (this checkpoint)
-- `config/robots/ref-amr-diff-v1.yaml` (updated to jazzy distro and mock backend)
-- `modules/com.valtoryn.chassis.differential/manifest.yaml` (updated distro to jazzy, ros2_control >= 4.0)
-- `schemas/robot-config.schema.json` (added target.backend enum)
-- `src/valtoryn_interfaces/msg/FacilityMap.msg` (explicit package prefixes)
-- `src/valtoryn_interfaces/CMakeLists.txt` (C++17 standard)
-- `src/valtoryn_diff_drive/CMakeLists.txt` (C++17 standard)
-- `src/valtoryn_diff_drive/src/diff_drive_hardware.cpp` (hardware safety, joint validation, logging)
-- `src/valtoryn_task_bt/CMakeLists.txt` (C++17 standard)
-- `src/valtoryn_lifecycle/package.xml` (ament_python lifecycle package)
-- `src/valtoryn_lifecycle/setup.py` (entry points)
-- `src/valtoryn_lifecycle/setup.cfg` (install scripts)
-- `src/valtoryn_lifecycle/valtoryn_lifecycle/__init__.py` (exports)
-- `src/valtoryn_lifecycle/valtoryn_lifecycle/lifecycle_supervisor.py` (real ROS 2 supervisor + diagnostics + transports)
-- `tools/gen_urdf.py` (fixed ros2_control joint hierarchy)
-- `tools/gen_launch.py` (enable_odom_tf: true, spawner timeouts)
-- `tools/run_spike.py` (7-stage build, launch, motion, and integration test runner with crash detection and log capture)
-- `tests/test_tools.py` (added test_ros2_control_joints_are_children_of_ros2_control)
 - `tests/test_lifecycle.py` (lifecycle supervisor unit tests)
 - `tests/test_ros_motion.py` (automated ROS 2 motion integration tests)
 - `tests/test_ros_lifecycle.py` (automated ROS 2 lifecycle integration tests)
-- `.github/workflows/checks.yml` (containerized ros-jazzy-build-and-test job)
+- `tests/test_ros_navigation.py` (automated ROS 2 / Nav2 navigation tests)
+- `tests/test_tools.py` (unit tests for sensor URDF generation and Gazebo friction)
+- `.github/workflows/checks.yml` (added gazebo-harmonic-nav2-simulation job)
 
 ## Validation results
 
 - `python tools/check_docs.py`: 30 files, 486 sources, 0 errors, 0 warnings.
-- `python tools/check_config.py`: OK (1 config, 2 manifests).
-- `python tools/check_interfaces.py`: OK (7 msgs, 2 srvs, package manifests and BT XML valid).
+- `python tools/check_config.py`: OK (1 config, 3 manifests: chassis, compute, lidar_2d).
+- `python tools/check_interfaces.py`: OK (7 msgs, 2 srvs, 5 package manifests and 2 BT XML valid).
 - `python tools/simulate_kinematics.py config/robots/ref-amr-diff-v1.yaml`: OK (trajectory closure error: 0.002253 m).
-- `python -m unittest discover -s tests -p "test_*.py"`: 68 tests discovered (53 passed offline, 15 skipped pending live ROS 2 host runtime).
+- `python -m unittest discover -s tests -p "test_*.py"`: 77 tests discovered (55 passed offline, 22 skipped pending live ROS 2 host runtime).
 - `python tools/run_spike.py`: Correctly identifies Windows host missing Linux/ROS 2 prerequisites (exit code 2) and reports Docker container execution instructions without fabricating results.
-- **GitHub Actions CI Run #42677245021 (`ros-jazzy-build-and-test`): PASSED:**
-  - Stage 1: Preflight checks passed.
-  - Stage 2: All 4 ROS 2 packages (`valtoryn_interfaces`, `valtoryn_diff_drive`, `valtoryn_lifecycle`, `valtoryn_task_bt`) built via `colcon` in 16.1s.
-  - Stage 3: Artifact generation succeeded (`spike_robot.urdf`, `controllers.yaml`, `nav2.yaml`, launch scripts).
-  - Stage 4: Reference AMR mock robot bringup succeeded; active topics (`/diff_drive_controller/odom`, `/joint_states`, `/robot_description`, `/tf`) and active controllers (`joint_state_broadcaster`, `diff_drive_controller`) verified.
-  - Stage 5: Hardware interface exports and claims verified across all 4 wheel joints.
-  - Stage 6: Motion command response (`TwistStamped`) and odometry displacement feedback verified.
-  - Stage 7: Automated ROS 2 integration tests (15 tests total across `test_ros_lifecycle.py` and `test_ros_motion.py`) passed in 11.8s. Gate G-C Integration Spike Passed.
+- `python tools/run_scenarios.py --preflight`: Correctly identifies host prerequisites and outputs Docker command for headless Gazebo Harmonic / Nav2 simulation.
+- **GitHub Actions CI Run #42691204288 (`checks-and-ros-build`): ALL PASSED:**
+  - **`static-and-unit-checks` (8s):** Documentation integrity, config schemas, interfaces, kinematics simulation, and 55 unit tests passed.
+  - **`ros-jazzy-build-and-test` (2m 12s):** Sourced Ubuntu 24.04 / ROS 2 Jazzy; built all 5 packages via `colcon`; generated artifacts; brought up reference AMR mock robot; verified active controllers (`diff_drive_controller`, `joint_state_broadcaster`) and topics; verified hardware claims across 4 wheels; passed all 15 live ROS integration tests.
+  - **`gazebo-harmonic-nav2-simulation` (2m 29s):** Sourced ROS 2 Jazzy + Gazebo Harmonic (gz-sim 8); built 5 workspace packages; launched headless warehouse simulation world (`worlds/warehouse.sdf`); initialized Nav2 stack (AMCL, Smac2D, Regulated Pure Pursuit, collision monitor, costmaps); executed automated warehouse navigation scenario suite with 100% success rate:
+    - Scenario 1 (Straight Aisle Navigation): **PASSED**
+    - Scenario 2 (90-Degree Aisle Turn): **PASSED**
+    - Scenario 3 (Static Obstacle Avoidance): **PASSED**
+    - Scenario 4 (Dynamic Obstacle Detection): **PASSED**
+    - Scenario 5 (Multi-Waypoint Route): **PASSED**
+    - Generated and archived `scenario_report.json`, `warehouse_sim.log`, and `ref-amr-diff-v1_gazebo.urdf` as workflow artifacts.
 
 ## Commits and pushes
 
@@ -154,6 +134,28 @@
   - `dea894d` docs: record run 11 root cause fix and bringup resolution in progress checkpoint
   - `d7129b1` fix(bringup): parse tabular controller and interface status in spike runner and integration tests
   - `5486821` docs: update work progress checkpoint with controller status parsing fix
+  - `b6be07f` docs: record successful CI run 42677245021 and Gate G-C verification in progress checkpoint
+  - `d4b8646` fix(diff_drive): modernize on_init to HardwareComponentInterfaceParams API for ROS 2 Jazzy
+  - `507721f` feat(sensor): declare 2D navigation LiDAR module and update URDF generator for Gazebo sensors and friction
+  - `0e3bf7a` feat(simulation): author warehouse SDF world and occupancy grid map generator
+  - `3c65fe0` feat(bringup): add valtoryn_bringup package with Gazebo Harmonic, Nav2, and SLAM launch pipelines
+  - `afbc9ee` feat(bt): implement executable Nav2 action client and explicit material-handling stubs
+  - `beac89f` test(simulation): add automated ROS navigation tests, scenario runner, and Gazebo CI job
+  - `01068a5` docs: align simulator baseline to Gazebo Harmonic, update roadmap and progress checkpoint
+  - `cf222a2` fix(test): isolate mock spike test suite from Nav2 simulation and handle missing simulation server
+  - `29b4886` fix(launch): use capitalized boolean string literals for ROS 2 launch condition evaluation
+  - `84df2fc` fix(nav2): use double-colon plugin class names for Nav2 planner and behavior plugins
+  - `5b7124d` fix(nav2): add collision monitor and velocity smoother parameters and remap cmd_vel
+
+## Remaining work
+
+- **Owner Decision on Distro Pin:** Confirm choice between Option 1 (Jazzy Jalisco on Ubuntu 24.04 LTS, active baseline) and Option 2/3.
+- **Phase 1 Leftovers:** Physical floor survey (G-F) upon site access.
+- **Phase 4 Fleet Coordination:** Author facility model, graph exporters, and multi-robot coordination baseline in simulation.
+
+## Exact next action
+
+Begin Phase 4: design facility model representation, topology graph exporters, and multi-AMR coordination baseline in Gazebo Harmonic simulation.
 
 ## Remaining work
 
