@@ -129,7 +129,7 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 180) -> bool:
         print("Waiting for Nav2 /navigate_to_pose action server and sensors...")
         ready = False
         start_wait = time.time()
-        while time.time() - start_wait < 45.0:
+        while time.time() - start_wait < 60.0:
             if sim_proc.poll() is not None:
                 print(f"ERROR: Simulation launch process exited prematurely with code {sim_proc.returncode}")
                 if sim_log.exists():
