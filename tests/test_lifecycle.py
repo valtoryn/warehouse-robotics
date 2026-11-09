@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """Unit tests for Valtoryn lifecycle supervisor and diagnostics aggregator.
 
+Tests:
+  - Node registration & tier validation
+  - Real lifecycle service transition sequencing
+  - Reverse-tier orderly shutdown
+  - Transition failure and timeout handling
+  - Critical fault cascading to higher-tier dependents
+  - Diagnostic report generation and level aggregation
+  - Stale heartbeat detection
+
 Run: python -m unittest discover -s tests -v
 """
 from __future__ import annotations
@@ -16,12 +25,15 @@ from valtoryn_lifecycle.lifecycle_supervisor import (  # noqa: E402
     DiagnosticLevel,
     LifecycleState,
     LifecycleSupervisor,
+    LifecycleTransition,
+    MockLifecycleClient,
 )
 
 
 class LifecycleSupervisorTests(unittest.TestCase):
     def setUp(self):
-        self.sup = LifecycleSupervisor(system_id="test_robot")
+        self.client = MockLifecycleClient()
+        self.sup = LifecycleSupervisor(system_id="test_robot", transport=self.client)
         self.node_hw = self.sup.register_node("diff_drive_hw", tier=1, is_critical=True)
         self.node_loc = self.sup.register_node("localization", tier=2, is_critical=True)
         self.node_nav = self.sup.register_node("nav2", tier=3, is_critical=True)
@@ -44,12 +56,44 @@ class LifecycleSupervisorTests(unittest.TestCase):
         for node in self.sup.nodes.values():
             self.assertEqual(node.state, LifecycleState.ACTIVE)
 
+        states = self.sup.query_actual_states()
+        for name, state in states.items():
+            self.assertEqual(state, LifecycleState.ACTIVE)
+
     def test_deactivate_all(self):
         self.sup.configure_all()
         self.sup.activate_all()
         self.assertTrue(self.sup.deactivate_all())
         for node in self.sup.nodes.values():
             self.assertEqual(node.state, LifecycleState.INACTIVE)
+
+    def test_shutdown_all_in_reverse_order(self):
+        self.sup.configure_all()
+        self.sup.activate_all()
+        self.assertTrue(self.sup.shutdown_all())
+        for node in self.sup.nodes.values():
+            self.assertEqual(node.state, LifecycleState.FINALIZED)
+
+    def test_transition_failure_handling(self):
+        # Inject failure on nav2 configure
+        self.client.inject_failure("nav2", LifecycleTransition.CONFIGURE)
+
+        res = self.sup.configure_all()
+        self.assertFalse(res)
+        self.assertEqual(self.node_hw.state, LifecycleState.INACTIVE)
+        self.assertEqual(self.node_loc.state, LifecycleState.INACTIVE)
+        self.assertEqual(self.node_nav.state, LifecycleState.ERROR)
+        self.assertIn("Injected transition failure", self.node_nav.error_message)
+
+    def test_transition_timeout_handling(self):
+        # Inject timeout on localization activate
+        self.sup.configure_all()
+        self.client.inject_timeout("localization")
+
+        res = self.sup.activate_all()
+        self.assertFalse(res)
+        self.assertEqual(self.node_loc.state, LifecycleState.ERROR)
+        self.assertIn("timed out", self.node_loc.error_message)
 
     def test_critical_fault_cascades_safely(self):
         self.sup.configure_all()
@@ -63,9 +107,11 @@ class LifecycleSupervisorTests(unittest.TestCase):
         self.assertIn("nav2", deactivated)
         self.assertIn("aux_lights", deactivated)
 
-        # Higher-tier nodes must be brought to INACTIVE standby
+        # Higher-tier nodes must be brought to INACTIVE standby via actual transport calls
         self.assertEqual(self.node_loc.state, LifecycleState.INACTIVE)
         self.assertEqual(self.node_nav.state, LifecycleState.INACTIVE)
+        self.assertEqual(self.client.node_states["localization"], LifecycleState.INACTIVE)
+        self.assertEqual(self.client.node_states["nav2"], LifecycleState.INACTIVE)
 
     def test_non_critical_fault_does_not_cascade(self):
         self.sup.configure_all()
