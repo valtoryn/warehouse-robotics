@@ -360,18 +360,18 @@ class RosWarehouseNavigationTests(unittest.TestCase):
 
     def test_05_scenario_1_straight_aisle_navigation(self):
         """Scenario 1: Drive along straight warehouse corridor from spawn."""
-        # Spawn is at (-7.0, 4.0). Move down west transit corridor to (-7.0, 1.0)
+        # Spawn is at (-7.0, 4.0, yaw=-1.57). Move down west transit corridor towards central aisle at (-7.0, 0.5)
         success, duration, error, _ = self._send_nav_goal(
-            target_x=-7.0, target_y=1.0, target_yaw=-1.57, timeout_sec=70.0
+            target_x=-7.0, target_y=0.5, target_yaw=-1.57, timeout_sec=70.0
         )
         self.assertTrue(success, f"Straight corridor navigation failed after {duration:.1f}s")
         self.assertLess(error, 0.50, f"Final pose error {error:.3f}m exceeded tolerance")
 
     def test_06_scenario_2_ninety_degree_intersection_turn(self):
         """Scenario 2: Navigate 90-degree turn through warehouse cross-aisle intersection."""
-        # From corridor turning into aisle entrance at (-5.0, 2.9, yaw=0.0)
+        # Turn from corridor into central aisle entrance at (-5.0, 0.0, yaw=0.0)
         success, duration, error, yaw_err = self._send_nav_goal(
-            target_x=-5.0, target_y=2.9, target_yaw=0.0, timeout_sec=70.0
+            target_x=-5.0, target_y=0.0, target_yaw=0.0, timeout_sec=70.0
         )
         self.assertTrue(success, f"90-degree intersection turn failed after {duration:.1f}s")
         self.assertLess(error, 0.50, f"Final pose error {error:.3f}m exceeded tolerance")
@@ -379,7 +379,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
 
     def test_07_scenario_3_static_obstacle_avoidance(self):
         """Scenario 3: Reach goal in central aisle navigating around static pallet stack."""
-        # Pallet stack is at (0.5, 0.45); navigate to point past the pallet stack at (2.5, 0.0)
+        # Pallet stack is at (0.5, 0.45); navigate down central aisle to point past the pallet stack at (2.5, 0.0)
         success, duration, error, _ = self._send_nav_goal(
             target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=80.0
         )
@@ -410,12 +410,12 @@ class RosWarehouseNavigationTests(unittest.TestCase):
     def test_09_scenario_5_multi_waypoint_mission_dispatch(self):
         """Scenario 5: Complete multi-waypoint transit between pick and drop stations."""
         # Waypoint A: station_pick_1 (-7.0, 4.0)
-        ok_a, dur_a, err_a, _ = self._send_nav_goal(-7.0, 4.0, 0.0, timeout_sec=75.0)
+        ok_a, dur_a, err_a, _ = self._send_nav_goal(-7.0, 4.0, 1.57, timeout_sec=75.0)
         self.assertTrue(ok_a, f"Failed reaching Waypoint A (Pick Station 1) in {dur_a:.1f}s")
         self.assertLess(err_a, 0.50, f"Waypoint A error {err_a:.3f}m exceeded tolerance")
 
         # Waypoint B: return to transit bay (-7.0, 0.0)
-        ok_b, dur_b, err_b, _ = self._send_nav_goal(-7.0, 0.0, 0.0, timeout_sec=65.0)
+        ok_b, dur_b, err_b, _ = self._send_nav_goal(-7.0, 0.0, -1.57, timeout_sec=65.0)
         self.assertTrue(ok_b, f"Failed reaching Waypoint B (Transit Bay) in {dur_b:.1f}s")
         self.assertLess(err_b, 0.50, f"Waypoint B error {err_b:.3f}m exceeded tolerance")
 

@@ -164,7 +164,8 @@
   - `1a8293d` fix(nav2): specify costmap width and height as integers for ROS 2 Jazzy
   - `71a76c1` fix(simulation): elevate LiDAR above chassis deck and expand scenario timeouts
   - `6f3e8f3` fix(simulation): resolve aisle obstacle clearance, elevate LiDAR to 0.42m, and tune Nav2 controller
-  - `fix(simulation)`: tune wheel lateral friction for skid-steer, align spawn yaw, and disable FollowPath collision detection
+  - `4310d60` fix(simulation): tune wheel lateral friction for skid-steer, align spawn yaw, and disable FollowPath collision detection
+  - `fix(simulation)`: align scenario targets through central warehouse aisle and clear mission progression
 
 ## Remaining work
 
