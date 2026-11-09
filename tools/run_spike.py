@@ -60,6 +60,7 @@ def run_stage_build() -> bool:
         "valtoryn_diff_drive",
         "valtoryn_lifecycle",
         "valtoryn_task_bt",
+        "valtoryn_bringup",
         "--event-handlers", "console_direct+",
     ]
     res = subprocess.run(cmd, cwd=str(ROOT))

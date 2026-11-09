@@ -56,9 +56,57 @@ jobs:
             python3-jsonschema \
             ros-jazzy-ros2-control \
             ros-jazzy-ros2-controllers \
+            ros-jazzy-behaviortree-cpp \
             ros-jazzy-nav2-msgs
 
       - name: Execute ROS 2 Jazzy integration spike and motion verification
         run: |
           . /opt/ros/jazzy/setup.sh
           python3 tools/run_spike.py
+
+  gazebo-harmonic-nav2-simulation:
+    needs: [ros-jazzy-build-and-test]
+    runs-on: ubuntu-latest
+    container:
+      image: osrf/ros:jazzy-desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Gazebo Harmonic, Nav2, and ROS dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            python3-pip \
+            python3-colcon-common-extensions \
+            python3-yaml \
+            python3-jsonschema \
+            ros-jazzy-ros2-control \
+            ros-jazzy-ros2-controllers \
+            ros-jazzy-behaviortree-cpp \
+            ros-jazzy-nav2-msgs \
+            ros-jazzy-navigation2 \
+            ros-jazzy-nav2-bringup \
+            ros-jazzy-slam-toolbox \
+            ros-jazzy-ros-gz \
+            ros-jazzy-gz-ros2-control
+
+      - name: Build workspace with colcon
+        run: |
+          . /opt/ros/jazzy/setup.sh
+          colcon build --event-handlers console_direct+
+
+      - name: Run Gazebo Harmonic & Nav2 scenario verification suite
+        run: |
+          . /opt/ros/jazzy/setup.sh
+          . install/setup.sh
+          python3 tools/run_scenarios.py
+
+      - name: Archive simulation scenario results and logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulation-scenario-artifacts
+          path: |
+            generated/scenario_report.json
+            generated/warehouse_sim.log
+            generated/ref-amr-diff-v1_gazebo.urdf
