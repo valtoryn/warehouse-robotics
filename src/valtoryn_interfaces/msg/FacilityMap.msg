@@ -4,7 +4,7 @@
 
 std_msgs/Header header
 string facility_map_version  # monotonic map revision
-FacilityNode[] nodes
-FacilityEdge[] edges
-FacilityZone[] zones
-FacilityAsset[] assets
+valtoryn_interfaces/FacilityNode[] nodes
+valtoryn_interfaces/FacilityEdge[] edges
+valtoryn_interfaces/FacilityZone[] zones
+valtoryn_interfaces/FacilityAsset[] assets

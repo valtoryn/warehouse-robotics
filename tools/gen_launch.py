@@ -57,6 +57,7 @@ diff_drive_controller:
     cmd_vel_timeout: 0.5
     base_frame_id: base_link
     odom_frame_id: odom
+    enable_odom_tf: true
     pose_covariance_diagonal: [0.001, 0.001, 0.01, 0.01, 0.01, 0.05]
     twist_covariance_diagonal: [0.01, 0.01, 0.01, 0.01, 0.01, 0.05]
 """
@@ -221,13 +222,13 @@ def _launch(context, *args, **kwargs):
     jsb_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["joint_state_broadcaster"],
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager", "--controller-manager-timeout", "30"],
         output="screen",
     )
     ddc_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["diff_drive_controller"],
+        arguments=["diff_drive_controller", "--controller-manager", "/controller_manager", "--controller-manager-timeout", "30"],
         output="screen",
     )
 
