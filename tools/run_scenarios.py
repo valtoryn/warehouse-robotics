@@ -127,10 +127,10 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 180) -> tuple[int, bool]:
         )
 
         # Wait for Nav2 action server and essential topics to become available
-        print("Waiting for Nav2 /navigate_to_pose action server and sensors (max 60s)...")
+        print("Waiting for Nav2 /navigate_to_pose action server and sensors (max 90s)...")
         ready = False
         start_wait = time.time()
-        while time.time() - start_wait < 60.0:
+        while time.time() - start_wait < 90.0:
             if sim_proc.poll() is not None:
                 print(f"ERROR: Simulation launch process crashed prematurely with code {sim_proc.returncode}")
                 if sim_log.exists():
@@ -146,6 +146,7 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 180) -> tuple[int, bool]:
             if "/navigate_to_pose" in act_check.stdout:
                 ready = True
                 print("Nav2 /navigate_to_pose action server is ready.")
+                time.sleep(3.0)
                 break
             time.sleep(2.0)
 

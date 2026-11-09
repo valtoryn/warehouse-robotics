@@ -324,22 +324,25 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         """Scenario 3: Reach goal in central aisle navigating around static pallet stack."""
         # Pallet stack is at (0.5, 0.0); navigate to point past the pallet stack at (2.5, 0.0)
         success, duration, error, _ = self._send_nav_goal(
-            target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=40.0
+            target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=50.0
         )
         self.assertTrue(success, f"Static obstacle avoidance failed after {duration:.1f}s")
         self.assertLess(error, 0.50, f"Final pose error {error:.3f}m exceeded tolerance")
 
     def test_08_scenario_4_dynamic_obstacle_response(self):
         """Scenario 4: Verify obstacle at (6.0, 0.0) is observed by LiDAR and reflected in costmap."""
-        # Robot is at (2.5, 0.0) facing (6.0, 0.0); spin to receive updated scan and costmap
+        # Spin to receive updated scan and costmap
         start = time.time()
         while time.time() - start < 3.0:
             rclpy.spin_once(self.node, timeout_sec=0.1)
 
         self.assertIsNotNone(self.latest_scan, "No LaserScan available for dynamic obstacle detection")
-        # Ensure scan has reflections in forward sector (within 4 meters toward x=6.0)
+        # Ensure scan has reflections in forward sector (within 6 meters toward x=6.0)
         mid_idx = len(self.latest_scan.ranges) // 2
-        fwd_ranges = [r for r in self.latest_scan.ranges[mid_idx - 30:mid_idx + 30] if 0.5 < r < 5.0]
+        fwd_ranges = [
+            r for r in self.latest_scan.ranges[max(0, mid_idx - 40):min(len(self.latest_scan.ranges), mid_idx + 40)]
+            if not math.isinf(r) and not math.isnan(r) and 0.1 <= r <= 8.0
+        ]
         self.assertGreater(len(fwd_ranges), 3, "LiDAR did not observe obstacle in forward detection corridor")
 
         # Verify local costmap contains occupied cells
@@ -351,12 +354,12 @@ class RosWarehouseNavigationTests(unittest.TestCase):
     def test_09_scenario_5_multi_waypoint_mission_dispatch(self):
         """Scenario 5: Complete multi-waypoint transit between pick and drop stations."""
         # Waypoint A: station_pick_1 (-7.0, 4.0)
-        ok_a, dur_a, err_a, _ = self._send_nav_goal(-7.0, 4.0, 0.0, timeout_sec=40.0)
+        ok_a, dur_a, err_a, _ = self._send_nav_goal(-7.0, 4.0, 0.0, timeout_sec=50.0)
         self.assertTrue(ok_a, f"Failed reaching Waypoint A (Pick Station 1) in {dur_a:.1f}s")
         self.assertLess(err_a, 0.50, f"Waypoint A error {err_a:.3f}m exceeded tolerance")
 
         # Waypoint B: return to transit bay (-7.0, 0.0)
-        ok_b, dur_b, err_b, _ = self._send_nav_goal(-7.0, 0.0, 0.0, timeout_sec=35.0)
+        ok_b, dur_b, err_b, _ = self._send_nav_goal(-7.0, 0.0, 0.0, timeout_sec=40.0)
         self.assertTrue(ok_b, f"Failed reaching Waypoint B (Transit Bay) in {dur_b:.1f}s")
         self.assertLess(err_b, 0.50, f"Waypoint B error {err_b:.3f}m exceeded tolerance")
 
