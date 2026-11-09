@@ -54,11 +54,9 @@ def generate_launch_description() -> LaunchDescription:
         description="Launch Nav2 collision monitor using /scan"
     )
 
-    # Standard Nav2 bringup launch with topic remapping to differential drive controller
+    # Standard Nav2 bringup launch (cmd_vel routed via collision_monitor out topic to diff_drive_controller)
     nav2_bringup = GroupAction(
         actions=[
-            SetRemap(src="/cmd_vel", dst="/diff_drive_controller/cmd_vel"),
-            SetRemap(src="cmd_vel", dst="/diff_drive_controller/cmd_vel"),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     os.path.join(get_package_share_directory("nav2_bringup"), "launch", "bringup_launch.py")

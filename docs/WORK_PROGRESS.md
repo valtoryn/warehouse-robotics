@@ -159,6 +159,8 @@
   - `33e3da2` fix(simulation): resolve launch tuple error and eliminate false-positive scenario reports
   - `12d20f2` fix(nav2): format collision monitor polygon points as string for ROS 2 Jazzy
   - `d1fcd2a` fix(nav2): configure docking server plugins and verify bt_navigator active state
+  - `38fe2b8` fix(simulation): align diff_drive_controller cmd_vel_unstamped topic and test sim time TF buffer
+  - `04f5711` fix(nav2): enable stamped cmd_vel pipeline and fix costmap topic subscription
 
 ## Remaining work
 
