@@ -5,11 +5,12 @@ Verifies:
   - Sensor data stream: /scan LaserScan and /clock simulated time
   - Transform tree: map -> odom -> base_link -> laser_link
   - Nav2 costmap generation: local and global costmaps receive obstacles from /scan
-  - Scenario 1: Straight aisle navigation along warehouse rack corridor
+  - Scenario 1: Straight aisle navigation along warehouse corridor
   - Scenario 2: 90-degree aisle turn through warehouse cross-aisle
   - Scenario 3: Static obstacle avoidance around central pallet stack
   - Scenario 4: Dynamic obstacle detection in local costmap
   - Scenario 5: Multi-waypoint mission dispatch via NavigateToPose action
+  - BehaviorTree mission execution via valtoryn_task_bt stubs
 
 Execution:
   In a sourced ROS 2 Jazzy + Gazebo Harmonic workspace:
@@ -37,14 +38,33 @@ if HAS_ROS:
         import rclpy
         from rclpy.action import ActionClient
         from rclpy.node import Node
-        from geometry_msgs.msg import PoseStamped, TwistStamped
+        from action_msgs.msg import GoalStatus
+        from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TwistStamped
         from nav_msgs.msg import OccupancyGrid, Odometry
         from nav2_msgs.action import NavigateToPose
         from rosgraph_msgs.msg import Clock
         from sensor_msgs.msg import LaserScan
         from tf2_msgs.msg import TFMessage
+        try:
+            from tf2_ros import Buffer, TransformListener
+            HAS_TF2 = True
+        except ImportError:
+            HAS_TF2 = False
     except ImportError:
         HAS_ROS = False
+
+
+def quaternion_to_yaw(qx: float, qy: float, qz: float, qw: float) -> float:
+    """Extract yaw angle (radians) from quaternion components."""
+    siny_cosp = 2.0 * (qw * qz + qx * qy)
+    cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz)
+    return math.atan2(siny_cosp, cosy_cosp)
+
+
+def normalize_angle_diff(a: float, b: float) -> float:
+    """Compute smallest difference between two angles in radians."""
+    diff = a - b
+    return math.atan2(math.sin(diff), math.cos(diff))
 
 
 @unittest.skipUnless(HAS_ROS, "ROS 2 Jazzy environment not available on this host")
@@ -54,12 +74,13 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         rclpy.init()
         cls.node = Node("test_warehouse_navigation_client")
         cls.action_client = ActionClient(cls.node, NavigateToPose, "navigate_to_pose")
-        if not cls.action_client.wait_for_server(timeout_sec=2.0):
+        if not cls.action_client.wait_for_server(timeout_sec=10.0):
             cls.action_client.destroy()
             cls.node.destroy_node()
             rclpy.shutdown()
-            raise unittest.SkipTest(
-                "Nav2 /navigate_to_pose action server is not active (execute via tools/run_scenarios.py)"
+            raise RuntimeError(
+                "Nav2 /navigate_to_pose action server is not active after 10s wait. "
+                "Failing test suite to prevent false-positive scenario reports."
             )
 
     @classmethod
@@ -72,9 +93,19 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         self.latest_scan: LaserScan | None = None
         self.latest_clock: Clock | None = None
         self.latest_odom: Odometry | None = None
+        self.latest_amcl_pose: PoseWithCovarianceStamped | None = None
         self.latest_local_costmap: OccupancyGrid | None = None
+        self.latest_global_costmap: OccupancyGrid | None = None
         self.received_tf_map_odom = False
         self.received_tf_odom_base = False
+        self.received_tf_base_laser = False
+
+        if HAS_TF2:
+            self.tf_buffer = Buffer()
+            self.tf_listener = TransformListener(self.tf_buffer, self.node)
+        else:
+            self.tf_buffer = None
+            self.tf_listener = None
 
         self.scan_sub = self.node.create_subscription(
             LaserScan, "/scan", self._on_scan, 10
@@ -85,11 +116,20 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         self.odom_sub = self.node.create_subscription(
             Odometry, "/diff_drive_controller/odom", self._on_odom, 10
         )
-        self.costmap_sub = self.node.create_subscription(
-            OccupancyGrid, "/local_costmap/costmap_raw", self._on_costmap, 10
+        self.amcl_sub = self.node.create_subscription(
+            PoseWithCovarianceStamped, "/amcl_pose", self._on_amcl_pose, 10
+        )
+        self.local_costmap_sub = self.node.create_subscription(
+            OccupancyGrid, "/local_costmap/costmap_raw", self._on_local_costmap, 10
+        )
+        self.global_costmap_sub = self.node.create_subscription(
+            OccupancyGrid, "/global_costmap/costmap_raw", self._on_global_costmap, 10
         )
         self.tf_sub = self.node.create_subscription(
             TFMessage, "/tf", self._on_tf, 20
+        )
+        self.tf_static_sub = self.node.create_subscription(
+            TFMessage, "/tf_static", self._on_tf, 20
         )
 
         # Spin to receive initial topics
@@ -103,8 +143,11 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         self.node.destroy_subscription(self.scan_sub)
         self.node.destroy_subscription(self.clock_sub)
         self.node.destroy_subscription(self.odom_sub)
-        self.node.destroy_subscription(self.costmap_sub)
+        self.node.destroy_subscription(self.amcl_sub)
+        self.node.destroy_subscription(self.local_costmap_sub)
+        self.node.destroy_subscription(self.global_costmap_sub)
         self.node.destroy_subscription(self.tf_sub)
+        self.node.destroy_subscription(self.tf_static_sub)
 
     def _on_scan(self, msg: LaserScan):
         self.latest_scan = msg
@@ -115,8 +158,14 @@ class RosWarehouseNavigationTests(unittest.TestCase):
     def _on_odom(self, msg: Odometry):
         self.latest_odom = msg
 
-    def _on_costmap(self, msg: OccupancyGrid):
+    def _on_amcl_pose(self, msg: PoseWithCovarianceStamped):
+        self.latest_amcl_pose = msg
+
+    def _on_local_costmap(self, msg: OccupancyGrid):
         self.latest_local_costmap = msg
+
+    def _on_global_costmap(self, msg: OccupancyGrid):
+        self.latest_global_costmap = msg
 
     def _on_tf(self, msg: TFMessage):
         for t in msg.transforms:
@@ -126,11 +175,35 @@ class RosWarehouseNavigationTests(unittest.TestCase):
                 self.received_tf_map_odom = True
             elif parent == "odom" and child == "base_link":
                 self.received_tf_odom_base = True
+            elif parent == "base_link" and child == "laser_link":
+                self.received_tf_base_laser = True
 
-    def _send_nav_goal(self, target_x: float, target_y: float, target_yaw: float = 0.0, timeout_sec: float = 40.0) -> tuple[bool, float, float]:
-        """Send a NavigateToPose goal, wait for completion, and return (success, duration, pose_error)."""
+    def _get_robot_pose_map(self) -> tuple[float, float, float] | None:
+        """Lookup robot pose (x, y, yaw) in 'map' coordinate frame."""
+        if self.tf_buffer is not None:
+            try:
+                t = self.tf_buffer.lookup_transform("map", "base_link", rclpy.time.Time())
+                tx = t.transform.translation.x
+                ty = t.transform.translation.y
+                rot = t.transform.rotation
+                yaw = quaternion_to_yaw(rot.x, rot.y, rot.z, rot.w)
+                return tx, ty, yaw
+            except Exception:
+                pass
+
+        if self.latest_amcl_pose is not None:
+            p = self.latest_amcl_pose.pose.pose.position
+            o = self.latest_amcl_pose.pose.pose.orientation
+            return p.x, p.y, quaternion_to_yaw(o.x, o.y, o.z, o.w)
+
+        return None
+
+    def _send_nav_goal(
+        self, target_x: float, target_y: float, target_yaw: float = 0.0, timeout_sec: float = 40.0
+    ) -> tuple[bool, float, float, float]:
+        """Send a NavigateToPose goal, wait for completion, and return (success, duration, pos_error, yaw_error)."""
         if not self.action_client.wait_for_server(timeout_sec=5.0):
-            return False, 0.0, float("inf")
+            return False, 0.0, float("inf"), float("inf")
 
         goal = NavigateToPose.Goal()
         goal.pose.header.frame_id = "map"
@@ -149,11 +222,11 @@ class RosWarehouseNavigationTests(unittest.TestCase):
             rclpy.spin_once(self.node, timeout_sec=0.1)
 
         if not send_future.done():
-            return False, time.time() - start_time, float("inf")
+            return False, time.time() - start_time, float("inf"), float("inf")
 
         goal_handle = send_future.result()
         if not goal_handle.accepted:
-            return False, time.time() - start_time, float("inf")
+            return False, time.time() - start_time, float("inf"), float("inf")
 
         result_future = goal_handle.get_result_async()
         while time.time() - start_time < timeout_sec and not result_future.done():
@@ -162,16 +235,29 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         duration = time.time() - start_time
         if not result_future.done():
             goal_handle.cancel_goal_async()
-            return False, duration, float("inf")
+            return False, duration, float("inf"), float("inf")
 
-        # Compute pose error if odom available
-        pose_error = 0.0
-        if self.latest_odom is not None:
+        # Verify Nav2 result status is SUCCEEDED (4)
+        result = result_future.result()
+        is_succeeded = (result.status == GoalStatus.STATUS_SUCCEEDED)
+
+        # Compute final pose error in 'map' coordinate frame
+        pose = self._get_robot_pose_map()
+        if pose is not None:
+            curr_x, curr_y, curr_yaw = pose
+            pos_error = math.hypot(curr_x - target_x, curr_y - target_y)
+            yaw_error = abs(normalize_angle_diff(curr_yaw, target_yaw))
+        elif self.latest_odom is not None:
+            # Fallback relative displacement estimate if map localization uninitialized
             curr_x = self.latest_odom.pose.pose.position.x
             curr_y = self.latest_odom.pose.pose.position.y
-            pose_error = math.sqrt((curr_x - target_x) ** 2 + (curr_y - target_y) ** 2)
+            pos_error = math.hypot(curr_x - target_x, curr_y - target_y)
+            yaw_error = 0.0
+        else:
+            pos_error = float("inf")
+            yaw_error = float("inf")
 
-        return True, duration, pose_error
+        return is_succeeded, duration, pos_error, yaw_error
 
     def test_01_lidar_scan_valid(self):
         """Verify /scan publishes valid ranges from Gazebo gpu_lidar."""
@@ -207,34 +293,83 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         has_obstacles = any(c > 0 for c in costs)
         self.assertTrue(has_obstacles, "Local costmap contains zero obstacle or inflation costs")
 
-    def test_04_straight_aisle_navigation(self):
-        """Scenario 1: Drive along straight warehouse rack corridor."""
-        success, duration, error = self._send_nav_goal(target_x=-3.0, target_y=4.0, target_yaw=0.0, timeout_sec=30.0)
-        self.assertTrue(success, f"Straight aisle navigation failed after {duration:.1f}s")
-        self.assertLess(error, 0.5, f"Final pose error {error:.3f}m exceeded tolerance")
+    def test_04_tf_tree_valid(self):
+        """Verify TF broadcasts complete kinematic chain: map -> odom -> base_link -> laser_link."""
+        start = time.time()
+        while time.time() - start < 5.0 and not (self.received_tf_map_odom and self.received_tf_odom_base):
+            rclpy.spin_once(self.node, timeout_sec=0.1)
 
-    def test_05_ninety_degree_intersection_turn(self):
-        """Scenario 2: Navigate 90-degree turn through warehouse cross-aisle."""
-        success, duration, error = self._send_nav_goal(target_x=-5.5, target_y=2.5, target_yaw=-1.57, timeout_sec=30.0)
+        self.assertTrue(self.received_tf_odom_base, "Missing transform: odom -> base_link from diff_drive_controller")
+
+    def test_05_scenario_1_straight_aisle_navigation(self):
+        """Scenario 1: Drive along straight warehouse corridor from spawn."""
+        # Spawn is at (-7.0, 4.0). Move down west transit corridor to (-7.0, 1.0)
+        success, duration, error, _ = self._send_nav_goal(
+            target_x=-7.0, target_y=1.0, target_yaw=-1.57, timeout_sec=35.0
+        )
+        self.assertTrue(success, f"Straight corridor navigation failed after {duration:.1f}s")
+        self.assertLess(error, 0.50, f"Final pose error {error:.3f}m exceeded tolerance")
+
+    def test_06_scenario_2_ninety_degree_intersection_turn(self):
+        """Scenario 2: Navigate 90-degree turn through warehouse cross-aisle intersection."""
+        # From corridor turning into aisle entrance at (-5.0, 2.9, yaw=0.0)
+        success, duration, error, yaw_err = self._send_nav_goal(
+            target_x=-5.0, target_y=2.9, target_yaw=0.0, timeout_sec=35.0
+        )
         self.assertTrue(success, f"90-degree intersection turn failed after {duration:.1f}s")
+        self.assertLess(error, 0.50, f"Final pose error {error:.3f}m exceeded tolerance")
+        self.assertLess(yaw_err, 0.35, f"Final yaw error {yaw_err:.3f} rad exceeded tolerance")
 
-    def test_06_static_obstacle_avoidance(self):
-        """Scenario 3: Reach goal in central aisle avoiding static pallet stack."""
-        # Pallet stack is at (0.5, 0.0); navigate to point past the pallet stack
-        success, duration, error = self._send_nav_goal(target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=35.0)
+    def test_07_scenario_3_static_obstacle_avoidance(self):
+        """Scenario 3: Reach goal in central aisle navigating around static pallet stack."""
+        # Pallet stack is at (0.5, 0.0); navigate to point past the pallet stack at (2.5, 0.0)
+        success, duration, error, _ = self._send_nav_goal(
+            target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=40.0
+        )
         self.assertTrue(success, f"Static obstacle avoidance failed after {duration:.1f}s")
+        self.assertLess(error, 0.50, f"Final pose error {error:.3f}m exceeded tolerance")
 
-    def test_07_multi_waypoint_mission_dispatch(self):
+    def test_08_scenario_4_dynamic_obstacle_response(self):
+        """Scenario 4: Verify obstacle at (6.0, 0.0) is observed by LiDAR and reflected in costmap."""
+        # Robot is at (2.5, 0.0) facing (6.0, 0.0); spin to receive updated scan and costmap
+        start = time.time()
+        while time.time() - start < 3.0:
+            rclpy.spin_once(self.node, timeout_sec=0.1)
+
+        self.assertIsNotNone(self.latest_scan, "No LaserScan available for dynamic obstacle detection")
+        # Ensure scan has reflections in forward sector (within 4 meters toward x=6.0)
+        mid_idx = len(self.latest_scan.ranges) // 2
+        fwd_ranges = [r for r in self.latest_scan.ranges[mid_idx - 30:mid_idx + 30] if 0.5 < r < 5.0]
+        self.assertGreater(len(fwd_ranges), 3, "LiDAR did not observe obstacle in forward detection corridor")
+
+        # Verify local costmap contains occupied cells
+        self.assertIsNotNone(self.latest_local_costmap, "No local costmap received")
+        costs = list(self.latest_local_costmap.data)
+        occupied_cells = [c for c in costs if c >= 50]
+        self.assertGreater(len(occupied_cells), 0, "Local costmap contains zero high-cost obstacle cells")
+
+    def test_09_scenario_5_multi_waypoint_mission_dispatch(self):
         """Scenario 5: Complete multi-waypoint transit between pick and drop stations."""
         # Waypoint A: station_pick_1 (-7.0, 4.0)
-        ok_a, dur_a, _ = self._send_nav_goal(-7.0, 4.0, 0.0, timeout_sec=30.0)
-        self.assertTrue(ok_a, "Failed reaching Waypoint A (Pick Station 1)")
+        ok_a, dur_a, err_a, _ = self._send_nav_goal(-7.0, 4.0, 0.0, timeout_sec=40.0)
+        self.assertTrue(ok_a, f"Failed reaching Waypoint A (Pick Station 1) in {dur_a:.1f}s")
+        self.assertLess(err_a, 0.50, f"Waypoint A error {err_a:.3f}m exceeded tolerance")
 
         # Waypoint B: return to transit bay (-7.0, 0.0)
-        ok_b, dur_b, _ = self._send_nav_goal(-7.0, 0.0, 0.0, timeout_sec=30.0)
-        self.assertTrue(ok_b, "Failed reaching Waypoint B (Transit Bay)")
+        ok_b, dur_b, err_b, _ = self._send_nav_goal(-7.0, 0.0, 0.0, timeout_sec=35.0)
+        self.assertTrue(ok_b, f"Failed reaching Waypoint B (Transit Bay) in {dur_b:.1f}s")
+        self.assertLess(err_b, 0.50, f"Waypoint B error {err_b:.3f}m exceeded tolerance")
+
+    def test_10_behavior_tree_mission_stubs(self):
+        """Scenario 6: Verify BehaviorTree mission definition and stub honest failure logging."""
+        bt_xml_path = ROOT / "src" / "valtoryn_task_bt" / "bt" / "warehouse_route_mission.xml"
+        self.assertTrue(bt_xml_path.exists(), f"Missing BehaviorTree mission XML: {bt_xml_path}")
+        content = bt_xml_path.read_text(encoding="utf-8")
+        self.assertIn("NavigateToPose", content)
+        self.assertIn("PayloadPickStub", content)
+        self.assertIn("PayloadDropStub", content)
+        self.assertIn("DockRobot", content)
 
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -94,25 +94,30 @@
 - `tests/test_tools.py` (unit tests for sensor URDF generation and Gazebo friction)
 - `.github/workflows/checks.yml` (added gazebo-harmonic-nav2-simulation job)
 
+- **Phase 3 Simulation Bringup & Verification Root-Cause Fixes:**
+  - **Diagnosed and resolved GitHub Actions run #20 launch failure:**
+    - Root cause: In `src/valtoryn_bringup/config/nav2_params.yaml`, line 280 contained `dock_plugins: []`. In ROS 2 Jazzy `launch_ros/descriptions/parameter.py`, an empty list in YAML is converted to an empty tuple `()`, which fails primitive scalar type validation (`TypeError: Expected 'value' to be one of [<class 'float'>, <class 'int'>, <class 'str'>, <class 'bool'>, <class 'bytes'>], but got '()' of type '<class 'tuple'>'`).
+    - Fix: Removed unused `docking_server` block with `dock_plugins: []` from `nav2_params.yaml`.
+  - **Diagnosed and eliminated false-positive scenario verification:**
+    - Root cause: In `tests/test_ros_navigation.py`, `setUpClass` called `raise unittest.SkipTest` when `/navigate_to_pose` timed out. `unittest` exited with return code 0 (`Ran 0 tests`). In `tools/run_scenarios.py`, `passed_tests = (test_proc.returncode == 0)` evaluated to `True`, recording all scenarios as `PASSED` in `scenario_report.json` despite zero tests having run.
+    - Fix in `test_ros_navigation.py`: When ROS 2 is active, a missing action server is treated as a hard failure (`RuntimeError`), never a skip. Added true Nav2 action status verification (`GoalStatus.STATUS_SUCCEEDED`), pose lookup in `map` coordinate frame via TF (`map -> base_link`) and `/amcl_pose`, and implemented all 5 navigation scenarios.
+    - Fix in `tools/run_scenarios.py`:
+      - Early termination with `EXIT_SIM_CRASH` (code 3) if simulation process exits prematurely or action server times out (never proceeds to tests).
+      - Strict output parsing ensuring `tests_run > 0`, zero failures, and zero skips. Any zero-test or skipped run results in `EXIT_SCENARIO_FAILED` (code 4).
+      - Added support for `--runs N` with duration mean and standard deviation reporting across repetitions.
+  - **Simulation Bringup Launch Parameter Propagation:**
+    - Declared and propagated arguments `urdf_path`, `world`, `x_pose`, `y_pose`, `z_pose`, and `yaw` in `src/valtoryn_bringup/launch/warehouse_sim.launch.py` to `sim_bringup.launch.py`.
+  - **Warehouse Map & Target Coordinates Alignment:**
+    - Aligned scenario targets with clear warehouse corridors: Straight Corridor Navigation along west transit aisle (`[-7.0, 1.0, -1.57]`), 90-Degree Aisle Turn (`[-5.0, 2.9, 0.0]`), Static Obstacle Avoidance around central pallet stack (`[2.5, 0.0, 0.0]`), Dynamic Obstacle Detection in forward corridor, and Multi-Waypoint Mission Dispatch across stations.
+
 ## Validation results
 
 - `python tools/check_docs.py`: 30 files, 486 sources, 0 errors, 0 warnings.
 - `python tools/check_config.py`: OK (1 config, 3 manifests: chassis, compute, lidar_2d).
 - `python tools/check_interfaces.py`: OK (7 msgs, 2 srvs, 5 package manifests and 2 BT XML valid).
 - `python tools/simulate_kinematics.py config/robots/ref-amr-diff-v1.yaml`: OK (trajectory closure error: 0.002253 m).
-- `python -m unittest discover -s tests -p "test_*.py"`: 77 tests discovered (55 passed offline, 22 skipped pending live ROS 2 host runtime).
-- `python tools/run_spike.py`: Correctly identifies Windows host missing Linux/ROS 2 prerequisites (exit code 2) and reports Docker container execution instructions without fabricating results.
+- `python -m unittest discover -s tests -p "test_*.py"`: 80 tests discovered (55 passed offline, 25 skipped pending live ROS 2 host runtime).
 - `python tools/run_scenarios.py --preflight`: Correctly identifies host prerequisites and outputs Docker command for headless Gazebo Harmonic / Nav2 simulation.
-- **GitHub Actions CI Run #42691204288 (`checks-and-ros-build`): ALL PASSED:**
-  - **`static-and-unit-checks` (8s):** Documentation integrity, config schemas, interfaces, kinematics simulation, and 55 unit tests passed.
-  - **`ros-jazzy-build-and-test` (2m 12s):** Sourced Ubuntu 24.04 / ROS 2 Jazzy; built all 5 packages via `colcon`; generated artifacts; brought up reference AMR mock robot; verified active controllers (`diff_drive_controller`, `joint_state_broadcaster`) and topics; verified hardware claims across 4 wheels; passed all 15 live ROS integration tests.
-  - **`gazebo-harmonic-nav2-simulation` (2m 29s):** Sourced ROS 2 Jazzy + Gazebo Harmonic (gz-sim 8); built 5 workspace packages; launched headless warehouse simulation world (`worlds/warehouse.sdf`); initialized Nav2 stack (AMCL, Smac2D, Regulated Pure Pursuit, collision monitor, costmaps); executed automated warehouse navigation scenario suite with 100% success rate:
-    - Scenario 1 (Straight Aisle Navigation): **PASSED**
-    - Scenario 2 (90-Degree Aisle Turn): **PASSED**
-    - Scenario 3 (Static Obstacle Avoidance): **PASSED**
-    - Scenario 4 (Dynamic Obstacle Detection): **PASSED**
-    - Scenario 5 (Multi-Waypoint Route): **PASSED**
-    - Generated and archived `scenario_report.json`, `warehouse_sim.log`, and `ref-amr-diff-v1_gazebo.urdf` as workflow artifacts.
 
 ## Commits and pushes
 
