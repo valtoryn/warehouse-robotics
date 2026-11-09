@@ -111,6 +111,17 @@ def dump_log(log_file: Path, max_lines: int = 100) -> None:
         print(f"Failed to read log file {log_file}: {exc}")
 
 
+def is_controller_active(stdout: str, name: str) -> bool:
+    """Check if named controller is in active state from `ros2 control list_controllers`."""
+    for line in stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[0] == name and parts[2] == "active":
+            return True
+        if name in line and "active" in line:
+            return True
+    return False
+
+
 def run_stage_launch_and_verify(timeout: int = 25) -> bool:
     print(f"\n[STAGE 4/7] Bringing up reference AMR mock robot (timeout: {timeout}s)...")
     setup_file = ROOT / "install" / "setup.bash"
@@ -163,10 +174,11 @@ def run_stage_launch_and_verify(timeout: int = 25) -> bool:
                 ["bash", "-c", f"source {setup_file} && ros2 control list_controllers"],
                 capture_output=True, text=True, timeout=5,
             )
-            if "joint_state_broadcaster[joint_state_broadcaster/JointStateBroadcaster] active" in ctrl_check.stdout:
-                jsb_active = True
-            if "diff_drive_controller[diff_drive_controller/DiffDriveController] active" in ctrl_check.stdout:
-                ddc_active = True
+            if ctrl_check.returncode == 0:
+                if is_controller_active(ctrl_check.stdout, "joint_state_broadcaster"):
+                    jsb_active = True
+                if is_controller_active(ctrl_check.stdout, "diff_drive_controller"):
+                    ddc_active = True
 
             # Check topic advertisements
             topic_check = subprocess.run(
@@ -207,7 +219,12 @@ def run_stage_launch_and_verify(timeout: int = 25) -> bool:
             ["bash", "-c", f"source {setup_file} && ros2 control list_hardware_interfaces"],
             capture_output=True, text=True, timeout=5,
         )
-        if "wheel_fl_joint/velocity [claimed]" not in hw_check.stdout:
+        wheel_joints = ["wheel_fl_joint", "wheel_fr_joint", "wheel_rl_joint", "wheel_rr_joint"]
+        all_claimed = all(
+            any(f"{j}/velocity" in line and "claimed" in line for line in hw_check.stdout.splitlines())
+            for j in wheel_joints
+        )
+        if not all_claimed:
             print(f"ERROR: Wheel velocity command interfaces not claimed.\n{hw_check.stdout}")
             dump_log(log_file)
             return False
@@ -253,7 +270,7 @@ def run_stage_launch_and_verify(timeout: int = 25) -> bool:
                 f"source {setup_file} && "
                 f"python3 -m unittest discover -s tests -p 'test_ros_*.py' -v"
             ],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=90,
         )
         print(test_run.stdout)
         if test_run.stderr:

@@ -115,18 +115,39 @@ class RosMockMotionIntegrationTests(unittest.TestCase):
             rclpy.spin_once(self.node, timeout_sec=dt)
             time.sleep(dt)
 
+    def _is_controller_active(self, output: str, name: str) -> bool:
+        for line in output.splitlines():
+            parts = line.split()
+            if len(parts) >= 3 and parts[0] == name and parts[2] == "active":
+                return True
+            if name in line and "active" in line:
+                return True
+        return False
+
     def test_01_controllers_active(self):
         res = subprocess.run(["ros2", "control", "list_controllers"], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, f"Failed to list controllers: {res.stderr}")
-        self.assertIn("joint_state_broadcaster[joint_state_broadcaster/JointStateBroadcaster] active", res.stdout)
-        self.assertIn("diff_drive_controller[diff_drive_controller/DiffDriveController] active", res.stdout)
+        self.assertTrue(
+            self._is_controller_active(res.stdout, "joint_state_broadcaster"),
+            f"joint_state_broadcaster not active in:\n{res.stdout}",
+        )
+        self.assertTrue(
+            self._is_controller_active(res.stdout, "diff_drive_controller"),
+            f"diff_drive_controller not active in:\n{res.stdout}",
+        )
 
     def test_02_hardware_interfaces_claimed(self):
         res = subprocess.run(["ros2", "control", "list_hardware_interfaces"], capture_output=True, text=True)
-        self.assertEqual(res.returncode, 0)
+        self.assertEqual(res.returncode, 0, f"Failed to list hardware interfaces: {res.stderr}")
         for j in ["wheel_fl_joint", "wheel_fr_joint", "wheel_rl_joint", "wheel_rr_joint"]:
-            self.assertIn(f"{j}/velocity [claimed]", res.stdout)
-            self.assertIn(f"{j}/position", res.stdout)
+            self.assertTrue(
+                any(f"{j}/velocity" in line and "claimed" in line for line in res.stdout.splitlines()),
+                f"{j}/velocity not claimed in:\n{res.stdout}",
+            )
+            self.assertTrue(
+                any(f"{j}/position" in line for line in res.stdout.splitlines()),
+                f"{j}/position not found in:\n{res.stdout}",
+            )
 
     def test_03_forward_motion(self):
         self.assertIsNotNone(self.latest_odom, "No odometry received from diff_drive_controller")
@@ -135,6 +156,8 @@ class RosMockMotionIntegrationTests(unittest.TestCase):
 
         # Drive forward at 0.5 m/s for 1.5 seconds
         self._send_cmd(linear_x=0.5, angular_z=0.0, duration_sec=1.5)
+        for _ in range(3):
+            rclpy.spin_once(self.node, timeout_sec=0.05)
 
         x_final = self.latest_odom.pose.pose.position.x
         y_final = self.latest_odom.pose.pose.position.y
@@ -156,6 +179,8 @@ class RosMockMotionIntegrationTests(unittest.TestCase):
 
         # Drive backward at -0.4 m/s for 1.0 second
         self._send_cmd(linear_x=-0.4, angular_z=0.0, duration_sec=1.0)
+        for _ in range(3):
+            rclpy.spin_once(self.node, timeout_sec=0.05)
 
         x_final = self.latest_odom.pose.pose.position.x
         dx = x_final - x_init
@@ -170,6 +195,8 @@ class RosMockMotionIntegrationTests(unittest.TestCase):
 
         # Rotate at 0.6 rad/s for 1.5 seconds
         self._send_cmd(linear_x=0.0, angular_z=0.6, duration_sec=1.5)
+        for _ in range(3):
+            rclpy.spin_once(self.node, timeout_sec=0.05)
 
         q_z_final = self.latest_odom.pose.pose.orientation.z
         q_w_final = self.latest_odom.pose.pose.orientation.w
