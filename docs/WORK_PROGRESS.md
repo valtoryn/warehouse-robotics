@@ -209,13 +209,31 @@
   - `5dc305d` fix(simulation): align scenario waypoints with central warehouse aisle
   - `0a28632` fix(nav2): enable A* search in NavfnPlanner and tune costmap inflation
   - `93af705` feat(nav2): configure SmacPlanner2D and rotate-to-heading in Nav2 bringup
+  - `d97d855` fix(sim): configure collision monitor pass-through and robust TF tree validation
+  - `d77dce0` fix(collision_monitor): configure polygons with action_type none to avoid launch tuple error and deadman stops
+  - `2aa67d4` fix(nav2): calibrate costmap radius and inflation for warehouse clearance
+  - `2adfdf0` fix(nav2): enforce active robot standstill between goals and align goal checker tolerances
+  - `b62d969` fix(simulation): configure low lateral wheel friction for skid-steer and expand movement allowance
+  - `0cbb518` fix(nav2): disable cost-regulated speed throttling in narrow aisles and calibrate travel velocity
+  - `ac69c5a` fix(tests): check mission completion success in combined process output
+
+- **Phase 3 Autonomous Simulation Milestone Closure (100% Verified in CI Run #53 [42820455684]):**
+  - All 5 autonomous warehouse AMR navigation scenarios verified repeatably across 3 consecutive simulation repetitions in headless Gazebo Harmonic (gz-sim 8) and Nav2 on ROS 2 Jazzy Jalisco:
+    - **Scenario 1 (Straight Corridor Navigation):** Target `[-7.0, 0.0]`, Status `PASSED` (avg duration 10.19s, avg position error 0.378m).
+    - **Scenario 2 (90-Degree Aisle Turn):** Target `[-4.0, 0.0]`, Status `PASSED` (avg duration 11.68s, avg position error 0.382m).
+    - **Scenario 3 (Static Obstacle Avoidance):** Target `[2.5, 0.0]`, Status `PASSED` (avg duration 19.12s, avg position error 0.393m). Navigates around central pallet stack at `(0.5, 0.45)` with verified obstacle clearance.
+    - **Scenario 4 (Dynamic Obstacle Detection):** Target `[6.0, 0.0]`, Status `PASSED` (avg duration 1.02s). Verified moving obstacle displacement via velocity control and observation in forward LiDAR scans and local costmap.
+    - **Scenario 5 (Multi-Waypoint Route):** Target `[-4.0, 0.0]`, Status `PASSED` (avg duration 33.57s, avg position error 0.337m). Verified sequential mission execution via `valtoryn_task_executor` with `warehouse_navigation_demo.xml`.
+  - Executed 30 total tests across 3 runs (10 tests per run, zero failures, zero skips, genuine assertions).
+  - Physical hardware boundaries strictly enforced: BehaviorTree material-handling stubs (`PayloadPickStub`, `PayloadDropStub`, `DockRobotStub`) fail closed with exit code 3 and explicit unverified hardware logging (`test_10`).
+  - Full CI pipeline completely green across all jobs (`static-and-unit-checks`, `ros-jazzy-build-and-test`, `gazebo-harmonic-nav2-simulation`).
 
 ## Remaining work
 
 - **Owner Decision on Distro Pin:** Confirm choice between Option 1 (Jazzy Jalisco on Ubuntu 24.04 LTS, active baseline) and Option 2/3.
 - **Phase 1 Leftovers:** Physical floor survey (G-F) upon site access.
-- **Phase 4 Fleet Coordination:** Author facility model, graph exporters, and multi-robot coordination baseline in simulation.
+- **Phase 4 Fleet and Facility Layer (Simulation):** Author facility model, graph exporters (LIF, RMF graph, Nav2 GeoJSON), queue/reservation multi-robot baseline coordinator, VDA 5050 v3 robot-side gateway, and multi-robot simulated missions.
 
 ## Exact next action
 
-Verify Phase 3 CI workflow run on GitHub Actions (`checks-and-ros-build`), reviewing `ros-jazzy-build-and-test` and `gazebo-harmonic-nav2-simulation` jobs.
+Begin Phase 4 Fleet and Facility Layer: design internal facility model schema and multi-robot fleet coordination baseline in Gazebo Harmonic simulation.

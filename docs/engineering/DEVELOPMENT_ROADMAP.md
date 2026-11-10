@@ -52,13 +52,13 @@ build + AMCL localisation in the authored warehouse world (`worlds/warehouse.sdf
 (`com.valtoryn.sensor.lidar_2d`); warehouse task BT library (`valtoryn_task_bt`) with C++ action clients and explicit
 material-handling stubs; automated physics-based scenario test suite (`tests/test_ros_navigation.py`, `tools/run_scenarios.py`).
 
-**Status:** In progress (Phase 3 closure milestone: navigation reliability, fail-closed BehaviorTree mission execution, and multi-run physics validation).
+**Status:** Completed & Verified (Phase 3 closure milestone: 100% verified physics-based autonomous simulation across 3 consecutive repetition runs in CI Run #53 [42820455684]).
 - Authored warehouse world (`worlds/warehouse.sdf`) with storage racks, aisles, intersections, pick/drop stations, static pallet stacks, and moving obstacle.
 - Simulation bringup package (`valtoryn_bringup`) orchestrating Gazebo Harmonic, `ros_gz_bridge`, controller spawners, and Nav2 navigation.
 - C++ BT action nodes for `NavigateToPose`, `DockRobotStub`, `PayloadPickStub`, and `PayloadDropStub` (failing closed with explicit errors to honestly communicate that physical hardware is not installed).
 - Automated scenario runner executing straight corridor, 90-degree turn, static obstacle avoidance, dynamic obstacle detection, and multi-station route missions.
 - Multi-run scenario verification (`--runs 3`) with robot and obstacle pose reset between repetitions.
-- Acceptance criteria: 10/10 navigation tests passing repeatably across 3 consecutive runs with < 0.40m pose error, zero false-positive mission completions, and full CI green on ROS 2 Jazzy / Gazebo Harmonic.
+- Acceptance criteria fully achieved: 30/30 navigation tests passing repeatably across 3 consecutive runs with < 0.40m pose error, zero false-positive mission completions, and full CI green on ROS 2 Jazzy / Gazebo Harmonic.
 
 **Acceptance:** repeated simulated missions meet scenario pass criteria at E1 evidence; run-to-run spread
 reported; no safety claims made.
