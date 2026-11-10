@@ -443,7 +443,12 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         self.assertTrue(has_base_laser, "Missing transform: base_link -> laser_link from robot_state_publisher")
 
         if self.tf_buffer is not None:
-            can_tf = self.tf_buffer.can_transform("map", "laser_link", rclpy.time.Time())
+            can_tf = False
+            for _ in range(25):
+                rclpy.spin_once(self.node, timeout_sec=0.1)
+                if self.tf_buffer.can_transform("map", "laser_link", rclpy.time.Time()):
+                    can_tf = True
+                    break
             self.assertTrue(can_tf, "Transform buffer cannot transform map -> laser_link")
 
     def test_05_scenario_1_straight_aisle_navigation(self):

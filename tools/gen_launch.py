@@ -92,8 +92,8 @@ controller_server:
     general_goal_checker:
       stateful: true
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.25
+      xy_goal_tolerance: 0.35
+      yaw_goal_tolerance: 0.35
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       desired_linear_vel: {fmt(min(0.35, v))}
@@ -106,6 +106,8 @@ controller_server:
       rotate_to_heading_min_angle: 0.08
       max_angular_vel: {fmt(w)}
       max_angular_accel: {fmt(min(2.5, 3.0 * w))}
+      min_approach_linear_velocity: 0.08
+      approach_velocity_scaling_dist: 0.6
       use_regulated_linear_velocity_scaling: true
       use_cost_regulated_linear_velocity_scaling: true
       cost_scaling_dist: 0.8
