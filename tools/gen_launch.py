@@ -82,7 +82,7 @@ controller_server:
     failure_tolerance: 2.0
     current_goal_checker: "general_goal_checker"
     current_progress_checker: "progress_checker"
-    progress_checker_plugin: "progress_checker"
+    progress_checker_plugins: ["progress_checker"]
     goal_checker_plugins: ["general_goal_checker"]
     controller_plugins: ["FollowPath"]
     progress_checker:
@@ -92,18 +92,18 @@ controller_server:
     general_goal_checker:
       stateful: true
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.35
-      yaw_goal_tolerance: 0.35
+      xy_goal_tolerance: 0.25
+      yaw_goal_tolerance: 0.25
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       desired_linear_vel: {fmt(v)}
       lookahead_dist: 0.5
       min_lookahead_dist: 0.3
       max_lookahead_dist: 0.8
-      lookahead_time: 1.2
+      lookahead_time: 1.0
       rotate_to_heading_angular_vel: {fmt(w)}
       use_rotate_to_heading: true
-      rotate_to_heading_min_angle: 0.20
+      rotate_to_heading_min_angle: 0.25
       max_angular_accel: {fmt(3.0 * w)}
 
 planner_server:
@@ -151,8 +151,8 @@ local_costmap:
           data_type: "LaserScan"
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.90
+        cost_scaling_factor: 4.0
+        inflation_radius: 0.65
 
 global_costmap:
   global_costmap:
@@ -171,8 +171,8 @@ global_costmap:
         map_subscribe_transient_local: true
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.90
+        cost_scaling_factor: 4.0
+        inflation_radius: 0.65
 """
 
 

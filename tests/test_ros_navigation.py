@@ -463,19 +463,19 @@ class RosWarehouseNavigationTests(unittest.TestCase):
 
     def test_06_scenario_2_ninety_degree_intersection_turn(self):
         """Scenario 2: Navigate 90-degree turn through warehouse cross-aisle intersection."""
-        # Turn from corridor into central aisle entrance at (-5.0, 0.0, yaw=0.0)
+        # Turn from corridor into central aisle entrance at (-4.0, 0.0, yaw=0.0)
         ok, dur, err, yaw_err, reason = self._send_nav_goal(
-            target_x=-5.0, target_y=0.0, target_yaw=0.0, timeout_sec=70.0
+            target_x=-4.0, target_y=0.0, target_yaw=0.0, timeout_sec=70.0
         )
-        passed = ok and (err < 0.50) and (yaw_err < 1.57)
+        passed = ok and (err < 0.50) and (yaw_err < 0.45)
         self._record_metric(
             "scenario_2_turn_90deg", "90-Degree Aisle Turn",
-            [-5.0, 0.0, 0.0], "PASSED" if passed else "FAILED",
+            [-4.0, 0.0, 0.0], "PASSED" if passed else "FAILED",
             dur, err, yaw_err, reason
         )
         self.assertTrue(ok, f"90-degree intersection turn failed after {dur:.1f}s. Reason: {reason}")
         self.assertLess(err, 0.50, f"Final pose error {err:.3f}m exceeded tolerance")
-        self.assertLess(yaw_err, 1.57, f"Final yaw error {yaw_err:.3f} rad exceeded tolerance")
+        self.assertLess(yaw_err, 0.45, f"Final yaw error {yaw_err:.3f} rad exceeded tolerance")
 
     def test_07_scenario_3_static_obstacle_avoidance(self):
         """Scenario 3: Reach goal in central aisle navigating around static pallet stack."""
@@ -570,16 +570,16 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         stdout, stderr = proc.communicate()
         output = stdout + "\n" + stderr
 
-        # Expected target at end of demo mission is (-5.0, 0.0, yaw=0.0)
+        # Expected target at end of demo mission is (-4.0, 0.0, yaw=0.0)
         pose = self._get_robot_pose_map()
-        target_x, target_y = -5.0, 0.0
+        target_x, target_y = -4.0, 0.0
         pos_error = math.hypot(pose[0] - target_x, pose[1] - target_y) if pose else float("inf")
 
         passed = (proc.returncode == 0) and ("Mission completed with SUCCESS" in output) and (pos_error < 0.50)
         reason = "SUCCEEDED" if passed else f"EXIT_{proc.returncode}"
         self._record_metric(
             "scenario_5_multi_waypoint", "Multi-Waypoint Route",
-            [-5.0, 0.0, 0.0], "PASSED" if passed else "FAILED",
+            [-4.0, 0.0, 0.0], "PASSED" if passed else "FAILED",
             dur, pos_error, 0.0, reason
         )
 

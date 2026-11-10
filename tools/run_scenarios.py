@@ -256,10 +256,10 @@ def run_scenarios(runs: int = 3, timeout_sec: int = 480) -> tuple[int, bool]:
 
     scenarios = [
         {"id": "scenario_1_straight_aisle", "name": "Straight Corridor Navigation", "target": [-7.0, 0.5, -1.57]},
-        {"id": "scenario_2_turn_90deg", "name": "90-Degree Aisle Turn", "target": [-5.0, 0.0, 0.0]},
+        {"id": "scenario_2_turn_90deg", "name": "90-Degree Aisle Turn", "target": [-4.0, 0.0, 0.0]},
         {"id": "scenario_3_static_obstacle", "name": "Static Obstacle Avoidance", "target": [2.5, 0.0, 0.0]},
         {"id": "scenario_4_dynamic_obstacle", "name": "Dynamic Obstacle Detection", "target": [6.0, 0.0, 0.0]},
-        {"id": "scenario_5_multi_waypoint", "name": "Multi-Waypoint Route", "target": [-5.0, 0.0, 0.0]},
+        {"id": "scenario_5_multi_waypoint", "name": "Multi-Waypoint Route", "target": [-4.0, 0.0, 0.0]},
     ]
 
     all_runs_passed = True
