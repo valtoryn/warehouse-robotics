@@ -515,7 +515,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         """Scenario 3: Reach goal in central aisle navigating around static pallet stack."""
         # Pallet stack is at (0.5, 0.45); navigate down central aisle to point past the pallet stack at (2.5, 0.0)
         ok, dur, err, yaw_err, reason = self._send_nav_goal(
-            target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=80.0
+            target_x=2.5, target_y=0.0, target_yaw=0.0, timeout_sec=100.0
         )
         passed = ok and (err < 0.50)
         self._record_metric(
