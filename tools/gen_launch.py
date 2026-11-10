@@ -97,7 +97,7 @@ controller_server:
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       desired_linear_vel: {fmt(v)}
-      lookahead_dist: 0.5
+      lookahead_dist: 0.4
       min_lookahead_dist: 0.3
       max_lookahead_dist: 0.8
       lookahead_time: 1.0
@@ -106,6 +106,8 @@ controller_server:
       rotate_to_heading_min_angle: 0.15
       max_angular_vel: {fmt(w)}
       max_angular_accel: {fmt(min(2.5, 3.0 * w))}
+      use_regulated_linear_velocity_scaling: true
+      use_cost_regulated_linear_velocity_scaling: true
 
 planner_server:
   ros__parameters:
