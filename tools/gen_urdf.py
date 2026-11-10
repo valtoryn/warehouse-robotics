@@ -213,17 +213,16 @@ def generate(
             ET.SubElement(range_el, "resolution").text = "0.01"
 
     # Wheel contact physics in Gazebo (surface friction)
-    # Clearpath Jackal standard for 4-wheel skid-steer AMR:
-    # mu1 = 0.5, mu2 = 0.5 with fdir1 = "1 0 0" (along wheel rolling direction)
-    # prevents lateral sliding/fish-tailing while enabling smooth skid-steer turns in place.
+    # Low lateral friction (mu2 = 0.05) allows 4-wheel skid-steer AMR to turn smoothly in place
+    # with fdir1 = "1 0 0" along wheel rolling direction and mu1 = 0.8 for strong forward traction.
     if backend == "gazebo":
         for suffix in WHEEL_POSITIONS:
             gz_wheel = ET.SubElement(robot, "gazebo", reference=f"wheel_{suffix}_link")
-            ET.SubElement(gz_wheel, "mu1").text = "0.5"
-            ET.SubElement(gz_wheel, "mu2").text = "0.5"
+            ET.SubElement(gz_wheel, "mu1").text = "0.8"
+            ET.SubElement(gz_wheel, "mu2").text = "0.05"
             ET.SubElement(gz_wheel, "fdir1").text = "1 0 0"
-            ET.SubElement(gz_wheel, "kp").text = "10000000.0"
-            ET.SubElement(gz_wheel, "kd").text = "1.0"
+            ET.SubElement(gz_wheel, "kp").text = "1000000.0"
+            ET.SubElement(gz_wheel, "kd").text = "10.0"
 
     # Gazebo system plugin is only attached for the gazebo simulation backend
     if backend == "gazebo":
