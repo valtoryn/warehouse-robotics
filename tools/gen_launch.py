@@ -101,10 +101,11 @@ controller_server:
       min_lookahead_dist: 0.3
       max_lookahead_dist: 0.8
       lookahead_time: 1.0
-      rotate_to_heading_angular_vel: {fmt(w)}
+      rotate_to_heading_angular_vel: {fmt(min(0.6, w))}
       use_rotate_to_heading: true
       rotate_to_heading_min_angle: 0.25
-      max_angular_accel: {fmt(3.0 * w)}
+      max_angular_vel: {fmt(w)}
+      max_angular_accel: {fmt(min(2.5, 3.0 * w))}
 
 planner_server:
   ros__parameters:

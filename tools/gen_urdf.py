@@ -98,7 +98,7 @@ def generate(
     ET.SubElement(cc, "origin", xyz=f"0 0 {fmt(wheel_r + chassis_h / 2)}", rpy="0 0 0")
     cg2 = ET.SubElement(cc, "geometry")
     ET.SubElement(cg2, "box", size=f"{fmt(chassis_l)} {fmt(chassis_w)} {fmt(chassis_h)}")
-    inertial_mass_xml(base, mass=60.0, ix=12.0, iy=18.0, iz=25.0)  # [EST] placeholder mass
+    inertial_mass_xml(base, mass=50.0, ix=3.0, iy=3.0, iz=4.5)  # [EST] box inertia for 50kg AMR
 
     # wheel links + continuous joints
     for suffix, (sx, sy) in WHEEL_POSITIONS.items():
@@ -213,14 +213,14 @@ def generate(
             ET.SubElement(range_el, "resolution").text = "0.01"
 
     # Wheel contact physics in Gazebo (surface friction)
-    # Low lateral friction (mu2 = 0.05) allows 4-wheel skid-steer AMR to turn smoothly in place
+    # Balanced lateral friction (mu2 = 0.4) provides grip without excessive turning scrub
     if backend == "gazebo":
         for suffix in WHEEL_POSITIONS:
             gz_wheel = ET.SubElement(robot, "gazebo", reference=f"wheel_{suffix}_link")
-            ET.SubElement(gz_wheel, "mu1").text = "0.8"
-            ET.SubElement(gz_wheel, "mu2").text = "0.05"
+            ET.SubElement(gz_wheel, "mu1").text = "1.0"
+            ET.SubElement(gz_wheel, "mu2").text = "0.4"
             ET.SubElement(gz_wheel, "kp").text = "1000000.0"
-            ET.SubElement(gz_wheel, "kd").text = "10.0"
+            ET.SubElement(gz_wheel, "kd").text = "100.0"
 
     # Gazebo system plugin is only attached for the gazebo simulation backend
     if backend == "gazebo":

@@ -85,7 +85,7 @@ controller_server:
       min_lookahead_dist: 0.3
       max_lookahead_dist: 0.8
       lookahead_time: 1.0
-      rotate_to_heading_angular_vel: 1.5
+      rotate_to_heading_angular_vel: 0.6
       use_rotate_to_heading: true
       rotate_to_heading_min_angle: 0.25
       max_angular_vel: 1.5
