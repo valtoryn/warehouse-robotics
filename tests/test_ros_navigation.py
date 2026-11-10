@@ -626,7 +626,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
             f"valtoryn_task_executor failed with return code {proc.returncode} after {dur:.1f}s.\n"
             f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
         )
-        self.assertIn("Mission completed with SUCCESS", stdout, "Mission did not report completion success")
+        self.assertIn("Mission completed with SUCCESS", output, "Mission did not report completion success")
         self.assertLess(pos_error, 0.50, f"Final robot pose error {pos_error:.3f}m exceeded tolerance")
 
     def test_10_behavior_tree_mission_stubs(self):
