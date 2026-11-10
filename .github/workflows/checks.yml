@@ -43,12 +43,14 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: osrf/ros:jazzy-desktop
+    env:
+      DEBIAN_FRONTEND: noninteractive
     steps:
       - uses: actions/checkout@v4
 
       - name: Install build and runtime dependencies
         run: |
-          apt-get update
+          for i in 1 2 3; do apt-get update && break || sleep 5; done
           apt-get install -y --no-install-recommends \
             python3-pip \
             python3-colcon-common-extensions \
@@ -69,12 +71,14 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: osrf/ros:jazzy-desktop
+    env:
+      DEBIAN_FRONTEND: noninteractive
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Gazebo Harmonic, Nav2, and ROS dependencies
         run: |
-          apt-get update
+          for i in 1 2 3; do apt-get update && break || sleep 5; done
           apt-get install -y --no-install-recommends \
             python3-pip \
             python3-colcon-common-extensions \
