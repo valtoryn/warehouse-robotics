@@ -448,14 +448,14 @@ class RosWarehouseNavigationTests(unittest.TestCase):
 
     def test_05_scenario_1_straight_aisle_navigation(self):
         """Scenario 1: Drive along straight warehouse corridor from spawn."""
-        # Spawn is at (-7.0, 4.0, yaw=-1.57). Move down west transit corridor towards central aisle at (-7.0, 0.5)
+        # Spawn is at (-7.0, 4.0, yaw=-1.57). Move down west transit corridor to cross-aisle intersection at (-7.0, 0.0)
         ok, dur, err, yaw_err, reason = self._send_nav_goal(
-            target_x=-7.0, target_y=0.5, target_yaw=-1.57, timeout_sec=70.0
+            target_x=-7.0, target_y=0.0, target_yaw=-1.57, timeout_sec=70.0
         )
         passed = ok and (err < 0.50)
         self._record_metric(
             "scenario_1_straight_aisle", "Straight Corridor Navigation",
-            [-7.0, 0.5, -1.57], "PASSED" if passed else "FAILED",
+            [-7.0, 0.0, -1.57], "PASSED" if passed else "FAILED",
             dur, err, yaw_err, reason
         )
         self.assertTrue(ok, f"Straight corridor navigation failed after {dur:.1f}s. Reason: {reason}")
