@@ -125,6 +125,32 @@
       - Fix in `tests/test_ros_navigation.py`:
         - Corrected fallback pose calculation from spawn odometry using exact spawn yaw (`yaw = -1.570796`) coordinate rotation.
 
+  - **Run #34 Failure Analysis & Phase 3 Navigation Reliability Closure:**
+    - Baseline: CI Run #34 (`42721598821`) on commit `1d54a29`.
+    - Failures: `test_07_scenario_3_static_obstacle_avoidance` failed after 32.4s ("no valid path found"), and `test_09_scenario_5_multi_waypoint_mission_dispatch` aborted in 0.0s (11ms).
+    - Diagnosis & Root Causes:
+      1. Ghost obstacle accumulation in `global_costmap`: `obstacle_layer` in `global_costmap` accumulated laser reflections with localization noise, filling the 1.35m clearance passage south of the static pallet stack at `(0.5, 0.45)`, causing intermittent replanning failures and recovery spins that pushed the AMR against Rack Row 3 (`Start occupied`).
+      2. Cascade failure in `test_09`: Because `test_07` left the robot pinned inside the lethal inflation footprint of Rack Row 3 at `(-2.70, -0.97)`, the subsequent goal in `test_09` was immediately aborted by the planner server in 11ms (`Start occupied`), displaying as `0.0s`.
+      3. False-positive hardware stubs: Material-handling and docking stubs previously returned `BT::NodeStatus::SUCCESS`, risking false-positive claims of physical capability.
+    - Solutions Implemented:
+      1. Restrict `global_costmap` to `plugins: ["static_layer", "inflation_layer"]` in `src/valtoryn_bringup/config/nav2_params.yaml` and `tools/gen_launch.py`, eliminating ghost obstacle buildup while preserving real-time obstacle avoidance in `local_costmap`'s rolling window.
+      2. Set `cost_travel_multiplier: 1.0` and `tolerance: 0.5` in `planner_server`.
+      3. Aligned Scenario 3 destination to `(2.5, 0.0, 0.0)` in the central aisle clear of the pallet stack.
+      4. Updated `PayloadPickStub`, `PayloadDropStub`, and `DockRobotStub` in `src/valtoryn_task_bt/include/valtoryn_task_bt/` to fail closed (`BT::NodeStatus::FAILURE`, exit code 3) with explicit unverified hardware logging (`[UNVERIFIED_PHYSICAL_HARDWARE]`).
+      5. Created `src/valtoryn_task_bt/bt/warehouse_navigation_demo.xml` executing a real navigation-only multi-station mission (`(-7.0, 0.5)` then `(-5.0, 0.0)`).
+      6. Modernized `tests/test_ros_navigation.py`:
+         - `_send_nav_goal()` returns structured results reporting distinct failure reasons (`SERVER_UNAVAILABLE`, `GOAL_REJECTED`, `TIMEOUT`, `ABORTED`, `CANCELED`, `SUCCEEDED`) and error code/message.
+         - `test_04_tf_tree_valid` asserts complete kinematic chain: `map -> odom`, `odom -> base_link`, `base_link -> laser_link`, and buffer transform validity.
+         - `test_08_scenario_4_dynamic_obstacle_response` commands `/model/moving_obstacle/cmd_vel`, verifies displacement, and verifies LiDAR/costmap detection.
+         - `test_09_scenario_5_multi_waypoint_mission_dispatch` executes `valtoryn_task_executor` with `warehouse_navigation_demo.xml`, verifying sequential navigation to `(-5.0, 0.0)` with error < 0.50m.
+         - `test_10_behavior_tree_mission_stubs` executes `valtoryn_task_executor` with fail-closed stubs, asserting return code 3.
+         - Exports `generated/scenario_metrics.json` at `tearDownClass`.
+      7. Upgraded `tools/run_scenarios.py`:
+         - Implemented `reset_robot_pose()` resetting AMR and moving obstacle poses in Gazebo Harmonic via `gz service` and resetting AMCL via `/initialpose`.
+         - Parses `generated/scenario_metrics.json` to assign independent `PASSED`/`FAILED`/`NOT_RUN` status, mean duration, and errors to each scenario.
+         - Default `--runs 3` with run-to-run statistics.
+      8. Updated `.github/workflows/checks.yml` to run `python3 tools/run_scenarios.py --runs 3` and archive `scenario_metrics.json`.
+
 ## Validation results
 
 - `python tools/check_docs.py`: 30 files, 486 sources, 0 errors, 0 warnings.

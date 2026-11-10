@@ -107,13 +107,14 @@ def launch_setup(context, *args, **kwargs):
         output="screen",
     )
 
-    # 4. ROS-Gazebo Parameter Bridge (/clock, /scan)
+    # 4. ROS-Gazebo Parameter Bridge (/clock, /scan, dynamic obstacle cmd_vel)
     gz_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
         arguments=[
             "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
             "/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+            "/model/moving_obstacle/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist",
         ],
         parameters=[{"use_sim_time": True}],
         output="screen",

@@ -161,20 +161,10 @@ global_costmap:
       robot_radius: {robot_radius}
       resolution: 0.05
       track_unknown_space: true
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      plugins: ["static_layer", "inflation_layer"]
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
-      obstacle_layer:
-        plugin: "nav2_costmap_2d::ObstacleLayer"
-        enabled: true
-        observation_sources: scan
-        scan:
-          topic: /scan
-          max_obstacle_height: 2.0
-          clearing: true
-          marking: true
-          data_type: "LaserScan"
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0

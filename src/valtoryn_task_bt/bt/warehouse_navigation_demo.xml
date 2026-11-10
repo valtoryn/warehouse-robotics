@@ -1,0 +1,13 @@
+<!--
+  Valtoryn Warehouse Robotics — Navigation-Only Mission Demonstration
+  Executes sequential transit between warehouse waypoints using Nav2.
+  Does not claim or simulate unsupported physical material handling.
+-->
+<root BTCPP_format="4">
+  <BehaviorTree ID="WarehouseNavigationDemo">
+    <Sequence name="multi_station_nav_sequence">
+      <NavigateToPose name="nav_to_corridor_turn" position_x="-7.0" position_y="0.5" orientation_yaw="-1.57"/>
+      <NavigateToPose name="nav_to_central_entrance" position_x="-5.0" position_y="0.0" orientation_yaw="0.0"/>
+    </Sequence>
+  </BehaviorTree>
+</root>

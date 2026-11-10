@@ -1,6 +1,6 @@
 # Development roadmap — Valtoryn platform
 
-> **Status:** Proposed roadmap. No code exists; phases define engineering work, not commitments.
+> **Status:** Active platform roadmap. Architecture, interface packages, hardware abstraction, mock bring-up, and physics-based autonomous simulation are implemented and verified in CI.
 > **Basis:** R02 §7.8 phasing, R04 §4.3 gates, RESEARCH_AUDIT open items A-1..A-10, TECHNOLOGY_DECISIONS G-A..G-F.
 > Ordering is dependency-driven: gates and decisions precede implementation.
 
@@ -52,12 +52,13 @@ build + AMCL localisation in the authored warehouse world (`worlds/warehouse.sdf
 (`com.valtoryn.sensor.lidar_2d`); warehouse task BT library (`valtoryn_task_bt`) with C++ action clients and explicit
 material-handling stubs; automated physics-based scenario test suite (`tests/test_ros_navigation.py`, `tools/run_scenarios.py`).
 
-**Status:** Completed in simulation (E0/E1).
+**Status:** In progress (Phase 3 closure milestone: navigation reliability, fail-closed BehaviorTree mission execution, and multi-run physics validation).
 - Authored warehouse world (`worlds/warehouse.sdf`) with storage racks, aisles, intersections, pick/drop stations, static pallet stacks, and moving obstacle.
 - Simulation bringup package (`valtoryn_bringup`) orchestrating Gazebo Harmonic, `ros_gz_bridge`, controller spawners, and Nav2 navigation.
-- C++ BT action nodes for `NavigateToPose`, `DockRobotStub`, `PayloadPickStub`, and `PayloadDropStub` (with explicit failure logging ensuring material handling hardware is not falsely claimed).
-- Automated scenario runner executing straight corridor, 90-degree turn, obstacle avoidance, dynamic obstacle detection, and multi-station route missions.
-- CI workflow running headless Gazebo Harmonic + Nav2 simulations and recording metrics artifacts.
+- C++ BT action nodes for `NavigateToPose`, `DockRobotStub`, `PayloadPickStub`, and `PayloadDropStub` (failing closed with explicit errors to honestly communicate that physical hardware is not installed).
+- Automated scenario runner executing straight corridor, 90-degree turn, static obstacle avoidance, dynamic obstacle detection, and multi-station route missions.
+- Multi-run scenario verification (`--runs 3`) with robot and obstacle pose reset between repetitions.
+- Acceptance criteria: 10/10 navigation tests passing repeatably across 3 consecutive runs with < 0.40m pose error, zero false-positive mission completions, and full CI green on ROS 2 Jazzy / Gazebo Harmonic.
 
 **Acceptance:** repeated simulated missions meet scenario pass criteria at E1 evidence; run-to-run spread
 reported; no safety claims made.

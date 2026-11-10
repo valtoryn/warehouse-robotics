@@ -41,7 +41,7 @@ BT::NodeStatus NavigateToPoseAction::onStart()
 
   Nav2Goal::Goal goal_msg;
   goal_msg.pose.header.frame_id = "map";
-  goal_msg.pose.header.stamp = node_->now();
+  goal_msg.pose.header.stamp = rclcpp::Time(0, 0, node_->get_clock()->get_clock_type());
   goal_msg.pose.pose.position.x = px;
   goal_msg.pose.pose.position.y = py;
   goal_msg.pose.pose.position.z = 0.0;
@@ -75,6 +75,7 @@ BT::NodeStatus NavigateToPoseAction::onStart()
 
   goal_sent_ = false;
   result_ready_ = false;
+  goal_handle_.reset();
   goal_handle_future_ = action_client_->async_send_goal(goal_msg, send_goal_opts);
   goal_sent_ = true;
 

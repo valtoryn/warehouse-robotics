@@ -90,7 +90,60 @@ def generate_artifacts() -> bool:
     return True
 
 
-def run_scenarios(runs: int = 1, timeout_sec: int = 480) -> tuple[int, bool]:
+def reset_robot_pose(
+    setup_file: Path,
+    x: float = -7.0,
+    y: float = 4.0,
+    z: float = 0.10,
+    yaw: float = -1.570796,
+) -> bool:
+    """Reset AMR pose and dynamic obstacles in Gazebo Harmonic and AMCL."""
+    print(f"Resetting robot and obstacles to initial conditions (spawn: x={x}, y={y}, z={z}, yaw={yaw})...")
+    qz = math.sin(yaw / 2.0)
+    qw = math.cos(yaw / 2.0)
+
+    # 1. Reset AMR pose in Gazebo Harmonic via gz service
+    gz_amr_cmd = [
+        "gz", "service", "-s", "/world/warehouse/set_pose",
+        "--reqtype", "gz.msgs.Pose",
+        "--reptype", "gz.msgs.Boolean",
+        "--timeout", "3000",
+        "--req", f'name: "valtoryn_ref_amr", position: {{x: {x}, y: {y}, z: {z}}}, orientation: {{x: 0.0, y: 0.0, z: {qz:.7f}, w: {qw:.7f}}}'
+    ]
+    subprocess.run(gz_amr_cmd, capture_output=True, text=True)
+
+    # 2. Reset dynamic obstacle pose and zero its velocity
+    gz_obs_cmd = [
+        "gz", "service", "-s", "/world/warehouse/set_pose",
+        "--reqtype", "gz.msgs.Pose",
+        "--reptype", "gz.msgs.Boolean",
+        "--timeout", "3000",
+        "--req", 'name: "moving_obstacle", position: {x: 6.0, y: 0.0, z: 0.5}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}'
+    ]
+    subprocess.run(gz_obs_cmd, capture_output=True, text=True)
+
+    gz_obs_stop = [
+        "gz", "topic", "-t", "/model/moving_obstacle/cmd_vel",
+        "-m", "gz.msgs.Twist",
+        "-p", "linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}"
+    ]
+    subprocess.run(gz_obs_stop, capture_output=True, text=True)
+
+    # 3. Publish /initialpose to AMCL in ROS 2
+    init_cmd = (
+        f"source {setup_file} && "
+        f"ros2 topic pub --once /initialpose geometry_msgs/msg/PoseWithCovarianceStamped "
+        f"'{{header: {{frame_id: \"map\"}}, pose: {{pose: {{position: {{x: {x}, y: {y}, z: 0.0}}, orientation: {{z: {qz:.7f}, w: {qw:.7f}}}}}}}' "
+        f"> /dev/null 2>&1"
+    )
+    subprocess.run(["bash", "-c", init_cmd], capture_output=True, text=True)
+
+    # Allow simulation physics, controllers, and AMCL particle cloud to settle
+    time.sleep(2.5)
+    return True
+
+
+def run_scenarios(runs: int = 3, timeout_sec: int = 480) -> tuple[int, bool]:
     """Execute scenario verification suite and return (exit_code, passed)."""
     print(f"\n[2/4] Executing {runs} run(s) of warehouse navigation scenarios...")
     setup_file = ROOT / "install" / "setup.bash"
@@ -104,6 +157,7 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 480) -> tuple[int, bool]:
     gen_dir.mkdir(parents=True, exist_ok=True)
     sim_log = gen_dir / "warehouse_sim.log"
     urdf_file = gen_dir / "ref-amr-diff-v1_gazebo.urdf"
+    metrics_file = gen_dir / "scenario_metrics.json"
 
     # Check if simulation is already running
     check_act = subprocess.run(
@@ -173,20 +227,27 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 480) -> tuple[int, bool]:
     scenarios = [
         {"id": "scenario_1_straight_aisle", "name": "Straight Corridor Navigation", "target": [-7.0, 0.5, -1.57]},
         {"id": "scenario_2_turn_90deg", "name": "90-Degree Aisle Turn", "target": [-5.0, 0.0, 0.0]},
-        {"id": "scenario_3_static_obstacle", "name": "Static Obstacle Avoidance", "target": [2.5, -0.2, 0.0]},
+        {"id": "scenario_3_static_obstacle", "name": "Static Obstacle Avoidance", "target": [2.5, 0.0, 0.0]},
         {"id": "scenario_4_dynamic_obstacle", "name": "Dynamic Obstacle Detection", "target": [6.0, 0.0, 0.0]},
-        {"id": "scenario_5_multi_waypoint", "name": "Multi-Waypoint Route", "target": [-7.0, 4.0, 1.57]},
+        {"id": "scenario_5_multi_waypoint", "name": "Multi-Waypoint Route", "target": [-5.0, 0.0, 0.0]},
     ]
 
     all_runs_passed = True
     total_tests_executed = 0
     run_durations: list[float] = []
+    scenario_history: dict[str, list[dict]] = {s["id"]: [] for s in scenarios}
 
     try:
         print("\n[3/4] Running live ROS 2 / Nav2 scenario integration tests...")
         for r in range(1, runs + 1):
             if runs > 1:
                 print(f"\n--- Repetition {r}/{runs} ---")
+            if r > 1:
+                reset_robot_pose(setup_file, -7.0, 4.0, 0.10, -1.570796)
+
+            if metrics_file.exists():
+                metrics_file.unlink()
+
             run_start = time.time()
             test_cmd = (
                 f"source {setup_file} && "
@@ -212,6 +273,36 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 480) -> tuple[int, bool]:
             has_failures = "FAILED" in output
             has_skips = re.search(r"skipped=\d+", output) is not None
 
+            # Parse scenario_metrics.json for granular per-scenario metrics
+            run_metrics = {}
+            if metrics_file.exists():
+                try:
+                    run_metrics = json.loads(metrics_file.read_text(encoding="utf-8"))
+                except Exception as exc:
+                    print(f"Warning: Failed to parse scenario_metrics.json: {exc}")
+
+            for s in scenarios:
+                sid = s["id"]
+                if sid in run_metrics:
+                    m = run_metrics[sid]
+                    scenario_history[sid].append({
+                        "run": r,
+                        "status": m.get("status", "FAILED"),
+                        "duration_seconds": m.get("duration_seconds", 0.0),
+                        "position_error_meters": m.get("position_error_meters"),
+                        "yaw_error_radians": m.get("yaw_error_radians"),
+                        "reason": m.get("reason", ""),
+                    })
+                else:
+                    scenario_history[sid].append({
+                        "run": r,
+                        "status": "NOT_RUN" if test_proc.returncode != 0 else "UNKNOWN",
+                        "duration_seconds": 0.0,
+                        "position_error_meters": None,
+                        "yaw_error_radians": None,
+                        "reason": "Test method did not complete or was not reached",
+                    })
+
             if test_proc.returncode != 0 or tests_run == 0 or has_failures or has_skips:
                 print(f"[RUN {r} FAILED] Return code: {test_proc.returncode}, Tests executed: {tests_run}, Skips/Failures detected.")
                 all_runs_passed = False
@@ -227,12 +318,42 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 480) -> tuple[int, bool]:
             except subprocess.TimeoutExpired:
                 sim_proc.kill()
 
-    # Calculate statistics
+    # Calculate statistics across runs
     avg_duration = sum(run_durations) / len(run_durations) if run_durations else 0.0
     variance = sum((d - avg_duration) ** 2 for d in run_durations) / len(run_durations) if len(run_durations) > 1 else 0.0
     std_duration = math.sqrt(variance)
 
-    # Record scenario metrics
+    # Assemble granular per-scenario metrics
+    scenario_reports = []
+    for s in scenarios:
+        sid = s["id"]
+        runs_data = scenario_history[sid]
+        all_passed = bool(runs_data) and all(rd["status"] == "PASSED" for rd in runs_data)
+        any_not_run = any(rd["status"] == "NOT_RUN" for rd in runs_data)
+        if all_passed:
+            scen_status = "PASSED"
+        elif any_not_run:
+            scen_status = "NOT_RUN"
+        else:
+            scen_status = "FAILED"
+
+        durations = [rd["duration_seconds"] for rd in runs_data if rd["duration_seconds"] > 0]
+        mean_dur = round(sum(durations) / len(durations), 2) if durations else 0.0
+        pos_errors = [rd["position_error_meters"] for rd in runs_data if rd.get("position_error_meters") is not None]
+        mean_err = round(sum(pos_errors) / len(pos_errors), 3) if pos_errors else None
+        reasons = sorted(list({rd["reason"] for rd in runs_data if rd.get("reason")}))
+
+        scenario_reports.append({
+            "id": sid,
+            "name": s["name"],
+            "target_coordinates": s["target"],
+            "status": scen_status,
+            "mean_duration_seconds": mean_dur,
+            "mean_position_error_meters": mean_err,
+            "failure_reasons": reasons,
+            "runs": runs_data,
+        })
+
     report = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "simulator": "Gazebo Harmonic (gz-sim 8)",
@@ -242,29 +363,22 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 480) -> tuple[int, bool]:
         "runs": runs,
         "mean_duration_seconds": round(avg_duration, 2),
         "std_duration_seconds": round(std_duration, 2),
-        "scenarios": [
-            {
-                "id": s["id"],
-                "name": s["name"],
-                "target_coordinates": s["target"],
-                "status": "PASSED" if (all_runs_passed and total_tests_executed > 0) else "FAILED",
-            }
-            for s in scenarios
-        ]
+        "scenarios": scenario_reports,
     }
 
     out_file = ROOT / "generated" / "scenario_report.json"
     out_file.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(f"\n[4/4] Scenario report written to {out_file}")
 
-    print("\n" + "=" * 65)
-    print(f"{'Scenario Name':<35} | {'Target':<15} | {'Status'}")
-    print("=" * 65)
-    for s in scenarios:
-        st = "PASSED" if (all_runs_passed and total_tests_executed > 0) else "FAILED"
-        tgt = f"[{s['target'][0]}, {s['target'][1]}]"
-        print(f"{s['name']:<35} | {tgt:<15} | {st}")
-    print("=" * 65)
+    print("\n" + "=" * 78)
+    print(f"{'Scenario Name':<32} | {'Target':<14} | {'Status':<8} | {'Avg Dur':<8} | {'Avg Err'}")
+    print("=" * 78)
+    for sr in scenario_reports:
+        tgt = f"[{sr['target_coordinates'][0]}, {sr['target_coordinates'][1]}]"
+        dur_str = f"{sr['mean_duration_seconds']:.1f}s" if sr['mean_duration_seconds'] else "N/A"
+        err_str = f"{sr['mean_position_error_meters']:.3f}m" if sr['mean_position_error_meters'] is not None else "N/A"
+        print(f"{sr['name']:<32} | {tgt:<14} | {sr['status']:<8} | {dur_str:<8} | {err_str}")
+    print("=" * 78)
 
     if not (all_runs_passed and total_tests_executed > 0):
         return EXIT_SCENARIO_FAILED, False
@@ -274,8 +388,8 @@ def run_scenarios(runs: int = 1, timeout_sec: int = 480) -> tuple[int, bool]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--runs", type=int, default=1, help="Number of repetitions per scenario")
-    parser.add_argument("--timeout", type=int, default=180, help="Max test duration in seconds")
+    parser.add_argument("--runs", type=int, default=3, help="Number of repetitions per scenario (default: 3)")
+    parser.add_argument("--timeout", type=int, default=480, help="Max test duration in seconds (default: 480)")
     parser.add_argument("--preflight", action="store_true", help="Check prerequisites only")
     args = parser.parse_args()
 

@@ -217,9 +217,10 @@ def main() -> int:
     if task_pkg.exists():
         errors.extend(check_package_xml(task_pkg, ["valtoryn_interfaces", "nav2_msgs"]))
 
-    bt_xml = TASK_BT_DIR / "bt" / "ref_amr_mission.xml"
-    if bt_xml.exists():
-        errors.extend(check_bt_xml(bt_xml))
+    bt_dir = TASK_BT_DIR / "bt"
+    if bt_dir.exists():
+        for bt_xml in sorted(bt_dir.glob("*.xml")):
+            errors.extend(check_bt_xml(bt_xml))
 
     # Diff drive hardware package check
     diff_pkg = DIFF_DRIVE_DIR / "package.xml"

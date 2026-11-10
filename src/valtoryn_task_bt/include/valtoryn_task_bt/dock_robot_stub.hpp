@@ -28,11 +28,13 @@ public:
   {
     std::string station_id = "unknown";
     getInput("station_id", station_id);
-    RCLCPP_INFO(
+    RCLCPP_ERROR(
       rclcpp::get_logger("DockRobotStub"),
-      "[%s] Simulating docking alignment to station '%s' (hardware docking actuator unverified; no physical dock sensor attached)",
+      "[%s] Non-functional docking stub invoked at station '%s': "
+      "hardware docking actuator and dock sensors are not installed; docking capability unverified. "
+      "Failing task to prevent false-positive docking claim.",
       name().c_str(), station_id.c_str());
-    return BT::NodeStatus::SUCCESS;
+    return BT::NodeStatus::FAILURE;
   }
 };
 

@@ -281,7 +281,9 @@
           <material><ambient>0.85 0.15 0.15 1</ambient><diffuse>0.85 0.15 0.15 1</diffuse></material>
         </visual>
       </link>
-      <plugin filename="gz-sim-velocity-control-system" name="gz::sim::systems::VelocityControl"/>
+      <plugin filename="gz-sim-velocity-control-system" name="gz::sim::systems::VelocityControl">
+        <topic>/model/moving_obstacle/cmd_vel</topic>
+      </plugin>
     </model>
 
   </world>

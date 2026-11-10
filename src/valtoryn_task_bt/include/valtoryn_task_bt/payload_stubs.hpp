@@ -32,12 +32,13 @@ public:
     getInput("station_id", station_id);
     getInput("payload_id", payload_id);
 
-    RCLCPP_WARN(
+    RCLCPP_ERROR(
       rclcpp::get_logger("PayloadPickStub"),
       "[%s] Non-functional payload pick stub invoked at station '%s' for item '%s': "
-      "material handling hardware is not installed; payload capability unverified (Gate C3 non-functional stub).",
+      "material handling hardware is not installed; payload capability unverified (Gate C3 non-functional stub). "
+      "Failing task to prevent false-positive material handling claim.",
       name().c_str(), station_id.c_str(), payload_id.c_str());
-    return BT::NodeStatus::SUCCESS;
+    return BT::NodeStatus::FAILURE;
   }
 };
 
@@ -64,12 +65,13 @@ public:
     getInput("station_id", station_id);
     getInput("payload_id", payload_id);
 
-    RCLCPP_WARN(
+    RCLCPP_ERROR(
       rclcpp::get_logger("PayloadDropStub"),
       "[%s] Non-functional payload drop stub invoked at station '%s' for item '%s': "
-      "material handling hardware is not installed; payload capability unverified (Gate C3 non-functional stub).",
+      "material handling hardware is not installed; payload capability unverified (Gate C3 non-functional stub). "
+      "Failing task to prevent false-positive material handling claim.",
       name().c_str(), station_id.c_str(), payload_id.c_str());
-    return BT::NodeStatus::SUCCESS;
+    return BT::NodeStatus::FAILURE;
   }
 };
 

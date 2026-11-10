@@ -100,3 +100,20 @@ All commits use the owner's configured identity; no AI attribution added; no his
 survey (G-B), Lyrical/Jetty spike (G-C), ros2_control Lyrical re-verification (G-D), `vda5050_core` v3
 assessment (G-E), floor survey (G-F). Then Phase 2 platform skeleton: workspace, interface packages,
 config schema + generator, mock + Gazebo backends.
+
+---
+
+## 10. Phase 3 Closure Addendum — Verified Autonomous Simulation & Mission Execution (2026-11-10)
+
+### 10.1 Milestone Objectives Completed
+- Pinned and verified baseline: **ROS 2 Jazzy Jalisco**, **Ubuntu 24.04 LTS**, **Gazebo Harmonic (gz-sim 8)**, and **Nav2**.
+- Single-robot autonomous navigation brought to verified, repeatable execution in an authored 20m x 16m warehouse facility (`worlds/warehouse.sdf`).
+- Global costmap ghost obstacle accumulation resolved by restricting global costmap to `static_layer` and `inflation_layer`, leaving dynamic obstacle detection to `local_costmap`'s rolling window.
+- Fail-closed BehaviorTree mission architecture:
+  - `valtoryn_task_executor` executes real navigation-only missions (`warehouse_navigation_demo.xml`) across multiple waypoints.
+  - Non-functional hardware stubs (`PayloadPickStub`, `PayloadDropStub`, `DockRobotStub`) fail closed (`BT::NodeStatus::FAILURE`, exit code 3) with explicit logging, preventing false-positive material handling or docking claims.
+- Dynamic obstacle ground-truth velocity control and sensor reflection verified via `/model/moving_obstacle/cmd_vel` bridging.
+- Scenario verification runner (`tools/run_scenarios.py`) upgraded with:
+  - Independent per-scenario metrics parsing from `generated/scenario_metrics.json`.
+  - Automated simulation and AMCL pose reset (`reset_robot_pose`) between repetitions.
+  - Multi-run verification (`--runs 3`) with run-to-run statistics and zero false-positive completions.
