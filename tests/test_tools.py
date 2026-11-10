@@ -345,10 +345,14 @@ class GenLaunchTests(unittest.TestCase):
         ddc = params["diff_drive_controller"]["ros__parameters"]
         self.assertAlmostEqual(ddc["wheel_separation"], 0.6)
         self.assertEqual(ddc["left_wheel_names"], ["wheel_fl_joint", "wheel_rl_joint"])
+        self.assertAlmostEqual(ddc["wheel_separation_multiplier"], 1.20)
 
     def test_nav2_params_parse_and_costmaps(self):
         params = yaml.safe_load(gen_launch.nav2_params(self.config))
         self.assertIn("FollowPath", params["controller_server"]["ros__parameters"]["controller_plugins"])
+        follow = params["controller_server"]["ros__parameters"]["FollowPath"]
+        self.assertAlmostEqual(follow["rotate_to_heading_min_angle"], 0.08)
+        self.assertTrue(follow["use_cost_regulated_linear_velocity_scaling"])
         self.assertAlmostEqual(
             params["controller_server"]["ros__parameters"]["min_y_velocity_threshold"],
             0.0

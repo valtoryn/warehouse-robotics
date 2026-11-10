@@ -49,7 +49,7 @@ diff_drive_controller:
     right_wheel_names: ["wheel_fr_joint", "wheel_rr_joint"]
     wheel_separation: {fmt(sep)}
     wheel_radius: {fmt(wr)}
-    wheel_separation_multiplier: 1.0
+    wheel_separation_multiplier: 1.20
     left_wheel_radius_multiplier: 1.0
     right_wheel_radius_multiplier: 1.0
     publish_rate: 50.0
@@ -96,18 +96,20 @@ controller_server:
       yaw_goal_tolerance: 0.25
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
-      desired_linear_vel: {fmt(v)}
+      desired_linear_vel: {fmt(min(0.35, v))}
       lookahead_dist: 0.4
-      min_lookahead_dist: 0.3
-      max_lookahead_dist: 0.8
+      min_lookahead_dist: 0.25
+      max_lookahead_dist: 0.5
       lookahead_time: 1.0
-      rotate_to_heading_angular_vel: {fmt(min(0.6, w))}
+      rotate_to_heading_angular_vel: {fmt(min(0.8, w))}
       use_rotate_to_heading: true
-      rotate_to_heading_min_angle: 0.15
+      rotate_to_heading_min_angle: 0.08
       max_angular_vel: {fmt(w)}
       max_angular_accel: {fmt(min(2.5, 3.0 * w))}
       use_regulated_linear_velocity_scaling: true
       use_cost_regulated_linear_velocity_scaling: true
+      cost_scaling_dist: 0.8
+      cost_scaling_gain: 2.0
 
 planner_server:
   ros__parameters:
