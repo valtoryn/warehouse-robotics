@@ -266,10 +266,29 @@ class RosWarehouseNavigationTests(unittest.TestCase):
 
         return None
 
+    def _stop_robot(self):
+        """Brake and bring the robot to a complete physical standstill."""
+        if not hasattr(self, "_stop_cmd_pub"):
+            self._stop_cmd_pub = self.node.create_publisher(
+                TwistStamped, "/diff_drive_controller/cmd_vel", 10
+            )
+        stop_cmd = TwistStamped()
+        stop_cmd.header.stamp = self.node.get_clock().now().to_msg()
+        stop_cmd.header.frame_id = "base_link"
+        stop_cmd.twist.linear.x = 0.0
+        stop_cmd.twist.angular.z = 0.0
+
+        for _ in range(10):
+            self._stop_cmd_pub.publish(stop_cmd)
+            rclpy.spin_once(self.node, timeout_sec=0.1)
+
     def _send_nav_goal(
         self, target_x: float, target_y: float, target_yaw: float = 0.0, timeout_sec: float = 40.0
     ) -> tuple[bool, float, float, float, str]:
         """Send a NavigateToPose goal, wait for completion, and return (success, duration, pos_error, yaw_error, reason)."""
+        # Ensure robot is fully stationary before starting navigation
+        self._stop_robot()
+
         # Ensure Nav2 action server is ready and responsive
         t_wait_server = time.time()
         server_ready = False
@@ -328,6 +347,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
                 rclpy.spin_once(self.node, timeout_sec=0.1)
             for _ in range(10):
                 rclpy.spin_once(self.node, timeout_sec=0.1)
+            self._stop_robot()
             return False, duration, float("inf"), float("inf"), "TIMEOUT"
 
         # Verify Nav2 result status
@@ -378,6 +398,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
             pos_error = float("inf")
             yaw_error = float("inf")
 
+        self._stop_robot()
         return is_succeeded, duration, pos_error, yaw_error, reason
 
     def test_01_lidar_scan_valid(self):
@@ -558,6 +579,9 @@ class RosWarehouseNavigationTests(unittest.TestCase):
         demo_xml = ROOT / "src" / "valtoryn_task_bt" / "bt" / "warehouse_navigation_demo.xml"
         self.assertTrue(demo_xml.exists(), f"Demo mission tree XML missing: {demo_xml}")
 
+        # Ensure robot is fully stationary before executing mission
+        self._stop_robot()
+
         # Execute valtoryn_task_executor with navigation-only multi-station mission
         cmd = [
             "ros2", "run", "valtoryn_task_bt", "valtoryn_task_executor",
@@ -595,6 +619,7 @@ class RosWarehouseNavigationTests(unittest.TestCase):
             [-4.0, 0.0, 0.0], "PASSED" if passed else "FAILED",
             dur, pos_error, 0.0, reason
         )
+        self._stop_robot()
 
         self.assertEqual(
             proc.returncode, 0,
