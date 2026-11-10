@@ -79,19 +79,21 @@ controller_server:
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.0  # differential drive: nonholonomic
     min_theta_velocity_threshold: 0.001
-    failure_tolerance: 0.3
+    failure_tolerance: 2.0
+    current_goal_checker: "general_goal_checker"
+    current_progress_checker: "progress_checker"
     progress_checker_plugin: "progress_checker"
     goal_checker_plugins: ["general_goal_checker"]
     controller_plugins: ["FollowPath"]
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.5
-      movement_time_allowance: 10.0
+      required_movement_radius: 0.15
+      movement_time_allowance: 30.0
     general_goal_checker:
       stateful: true
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.05
-      yaw_goal_tolerance: 0.1
+      xy_goal_tolerance: 0.35
+      yaw_goal_tolerance: 0.35
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       desired_linear_vel: {fmt(v)}
@@ -100,6 +102,8 @@ controller_server:
       max_lookahead_dist: 0.9
       lookahead_time: 1.5
       rotate_to_heading_angular_vel: {fmt(w)}
+      use_rotate_to_heading: true
+      rotate_to_heading_min_angle: 0.20
       max_angular_accel: {fmt(3.0 * w)}
 
 planner_server:

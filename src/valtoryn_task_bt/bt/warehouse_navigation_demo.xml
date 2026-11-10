@@ -6,8 +6,8 @@
 <root BTCPP_format="4">
   <BehaviorTree ID="WarehouseNavigationDemo">
     <Sequence name="multi_station_nav_sequence">
-      <NavigateToPose name="nav_to_corridor_turn" position_x="-7.0" position_y="0.5" orientation_yaw="-1.57"/>
-      <NavigateToPose name="nav_to_central_entrance" position_x="-5.0" position_y="0.0" orientation_yaw="0.0"/>
+      <NavigateToPose name="nav_to_central_transit" position_x="-2.0" position_y="0.0" orientation_yaw="3.14159"/>
+      <NavigateToPose name="nav_to_central_entrance" position_x="-5.0" position_y="0.0" orientation_yaw="3.14159"/>
     </Sequence>
   </BehaviorTree>
 </root>

@@ -27,6 +27,7 @@ import math
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -143,6 +144,93 @@ def reset_robot_pose(
     return True
 
 
+def start_simulation(
+    setup_file: Path, urdf_file: Path, sim_log: Path, append_log: bool = False
+) -> tuple[subprocess.Popen | None, bool]:
+    """Start Gazebo Harmonic and Nav2 simulation stack and wait for action server."""
+    print("Starting Gazebo Harmonic & Nav2 warehouse simulation stack...")
+    launch_cmd = (
+        f"source {setup_file} && "
+        f"ros2 launch valtoryn_bringup warehouse_sim.launch.py "
+        f"headless:=True urdf_path:={urdf_file}"
+    )
+    sim_log_f = open(sim_log, "a" if append_log else "w", encoding="utf-8")
+
+    kwargs = {}
+    if hasattr(os, "setsid"):
+        kwargs["start_new_session"] = True
+
+    sim_proc = subprocess.Popen(
+        launch_cmd, shell=True, executable="/bin/bash",
+        stdout=sim_log_f, stderr=subprocess.STDOUT, text=True,
+        **kwargs,
+    )
+
+    print("Waiting for Nav2 /navigate_to_pose action server and sensors (max 90s)...")
+    ready = False
+    start_wait = time.time()
+    while time.time() - start_wait < 90.0:
+        if sim_proc.poll() is not None:
+            print(f"ERROR: Simulation launch process crashed prematurely with code {sim_proc.returncode}")
+            if sim_log.exists():
+                print("--- SIMULATION LAUNCH LOG ---")
+                print(sim_log.read_text(encoding="utf-8", errors="replace"))
+                print("--- END SIMULATION LAUNCH LOG ---")
+            return None, False
+
+        act_check = subprocess.run(
+            ["bash", "-c", f"source {setup_file} && ros2 action list"],
+            capture_output=True, text=True,
+        )
+        lc_check = subprocess.run(
+            ["bash", "-c", f"source {setup_file} && ros2 lifecycle get /bt_navigator 2>/dev/null"],
+            capture_output=True, text=True,
+        )
+        is_active = "active" in lc_check.stdout.lower()
+        if "/navigate_to_pose" in act_check.stdout and is_active:
+            ready = True
+            print("Nav2 /navigate_to_pose action server is active and ready.")
+            time.sleep(3.0)
+            break
+        time.sleep(2.0)
+
+    if not ready:
+        print("ERROR: Timed out waiting for /navigate_to_pose action server.")
+        if sim_log.exists():
+            print("--- LAST 50 LINES OF SIMULATION LOG ---")
+            lines = sim_log.read_text(encoding="utf-8", errors="replace").splitlines()
+            print("\n".join(lines[-50:]))
+            print("--- END SIMULATION LOG ---")
+        stop_simulation(sim_proc)
+        return None, False
+
+    return sim_proc, True
+
+
+def stop_simulation(sim_proc: subprocess.Popen | None):
+    """Stop simulation process group and clean up any lingering simulation daemons."""
+    if sim_proc is not None and sim_proc.poll() is None:
+        try:
+            if hasattr(os, "killpg") and hasattr(os, "getpgid"):
+                os.killpg(os.getpgid(sim_proc.pid), signal.SIGTERM)
+            else:
+                sim_proc.terminate()
+            sim_proc.wait(timeout=8.0)
+        except Exception:
+            try:
+                if hasattr(os, "killpg") and hasattr(os, "getpgid"):
+                    os.killpg(os.getpgid(sim_proc.pid), signal.SIGKILL)
+                else:
+                    sim_proc.kill()
+            except Exception:
+                pass
+    subprocess.run(["pkill", "-9", "-f", "gz sim"], capture_output=True)
+    subprocess.run(["pkill", "-9", "-f", "ros_gz_bridge"], capture_output=True)
+    subprocess.run(["pkill", "-9", "-f", "nav2_container"], capture_output=True)
+    subprocess.run(["pkill", "-9", "-f", "robot_state_publisher"], capture_output=True)
+    time.sleep(1.5)
+
+
 def run_scenarios(runs: int = 3, timeout_sec: int = 480) -> tuple[int, bool]:
     """Execute scenario verification suite and return (exit_code, passed)."""
     print(f"\n[2/4] Executing {runs} run(s) of warehouse navigation scenarios...")
@@ -159,70 +247,12 @@ def run_scenarios(runs: int = 3, timeout_sec: int = 480) -> tuple[int, bool]:
     urdf_file = gen_dir / "ref-amr-diff-v1_gazebo.urdf"
     metrics_file = gen_dir / "scenario_metrics.json"
 
-    # Check if simulation is already running
+    # Check if simulation is already running externally
     check_act = subprocess.run(
         ["bash", "-c", f"source {setup_file} && ros2 action list"],
         capture_output=True, text=True,
     )
     sim_already_running = "/navigate_to_pose" in check_act.stdout
-
-    sim_proc: subprocess.Popen | None = None
-    if not sim_already_running:
-        print("Starting Gazebo Harmonic & Nav2 warehouse simulation stack...")
-        launch_cmd = (
-            f"source {setup_file} && "
-            f"ros2 launch valtoryn_bringup warehouse_sim.launch.py "
-            f"headless:=True urdf_path:={urdf_file}"
-        )
-        sim_log_f = open(sim_log, "w", encoding="utf-8")
-        sim_proc = subprocess.Popen(
-            launch_cmd, shell=True, executable="/bin/bash",
-            stdout=sim_log_f, stderr=subprocess.STDOUT, text=True,
-        )
-
-        # Wait for Nav2 action server and essential topics to become available
-        print("Waiting for Nav2 /navigate_to_pose action server and sensors (max 90s)...")
-        ready = False
-        start_wait = time.time()
-        while time.time() - start_wait < 90.0:
-            if sim_proc.poll() is not None:
-                print(f"ERROR: Simulation launch process crashed prematurely with code {sim_proc.returncode}")
-                if sim_log.exists():
-                    print("--- SIMULATION LAUNCH LOG ---")
-                    print(sim_log.read_text(encoding="utf-8", errors="replace"))
-                    print("--- END SIMULATION LAUNCH LOG ---")
-                return EXIT_SIM_CRASH, False
-
-            act_check = subprocess.run(
-                ["bash", "-c", f"source {setup_file} && ros2 action list"],
-                capture_output=True, text=True,
-            )
-            lc_check = subprocess.run(
-                ["bash", "-c", f"source {setup_file} && ros2 lifecycle get /bt_navigator 2>/dev/null"],
-                capture_output=True, text=True,
-            )
-            is_active = "active" in lc_check.stdout.lower()
-            if "/navigate_to_pose" in act_check.stdout and is_active:
-                ready = True
-                print("Nav2 /navigate_to_pose action server is active and ready.")
-                time.sleep(3.0)
-                break
-            time.sleep(2.0)
-
-        if not ready:
-            print("ERROR: Timed out waiting for /navigate_to_pose action server.")
-            if sim_log.exists():
-                print("--- LAST 50 LINES OF SIMULATION LOG ---")
-                lines = sim_log.read_text(encoding="utf-8", errors="replace").splitlines()
-                print("\n".join(lines[-50:]))
-                print("--- END SIMULATION LOG ---")
-            if sim_proc and sim_proc.poll() is None:
-                sim_proc.terminate()
-                try:
-                    sim_proc.wait(timeout=5.0)
-                except subprocess.TimeoutExpired:
-                    sim_proc.kill()
-            return EXIT_SIM_CRASH, False
 
     scenarios = [
         {"id": "scenario_1_straight_aisle", "name": "Straight Corridor Navigation", "target": [-7.0, 0.5, -1.57]},
@@ -237,14 +267,21 @@ def run_scenarios(runs: int = 3, timeout_sec: int = 480) -> tuple[int, bool]:
     run_durations: list[float] = []
     scenario_history: dict[str, list[dict]] = {s["id"]: [] for s in scenarios}
 
-    try:
-        print("\n[3/4] Running live ROS 2 / Nav2 scenario integration tests...")
-        for r in range(1, runs + 1):
-            if runs > 1:
-                print(f"\n--- Repetition {r}/{runs} ---")
-            if r > 1:
-                reset_robot_pose(setup_file, -7.0, 4.0, 0.10, -1.570796)
+    print("\n[3/4] Running live ROS 2 / Nav2 scenario integration tests...")
+    for r in range(1, runs + 1):
+        if runs > 1:
+            print(f"\n--- Repetition {r}/{runs} ---")
 
+        sim_proc = None
+        if not sim_already_running:
+            sim_proc, sim_ok = start_simulation(setup_file, urdf_file, sim_log, append_log=(r > 1))
+            if not sim_ok:
+                all_runs_passed = False
+                continue
+        elif r > 1:
+            reset_robot_pose(setup_file, -7.0, 4.0, 0.10, -1.570796)
+
+        try:
             if metrics_file.exists():
                 metrics_file.unlink()
 
@@ -308,15 +345,10 @@ def run_scenarios(runs: int = 3, timeout_sec: int = 480) -> tuple[int, bool]:
                 all_runs_passed = False
             else:
                 print(f"[RUN {r} PASSED] Executed {tests_run} tests in {run_dur:.1f}s.")
-
-    finally:
-        if sim_proc is not None and sim_proc.poll() is None:
-            print("\nTearing down warehouse simulation...")
-            sim_proc.terminate()
-            try:
-                sim_proc.wait(timeout=10.0)
-            except subprocess.TimeoutExpired:
-                sim_proc.kill()
+        finally:
+            if not sim_already_running and sim_proc is not None:
+                print("Tearing down repetition simulation...")
+                stop_simulation(sim_proc)
 
     # Calculate statistics across runs
     avg_duration = sum(run_durations) / len(run_durations) if run_durations else 0.0

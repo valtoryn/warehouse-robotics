@@ -150,6 +150,11 @@
          - Parses `generated/scenario_metrics.json` to assign independent `PASSED`/`FAILED`/`NOT_RUN` status, mean duration, and errors to each scenario.
          - Default `--runs 3` with run-to-run statistics.
       8. Updated `.github/workflows/checks.yml` to run `python3 tools/run_scenarios.py --runs 3` and archive `scenario_metrics.json`.
+      9. Diagnosed and resolved Run #36 failure modes:
+         - **Rotate-To-Heading Dead-Zone:** `rotate_to_heading_min_angle` (0.785 rad / 45°) was greater than `yaw_goal_tolerance` (0.25 rad / 14°). Heading errors between 0.25 and 0.785 rad prevented in-place rotation; the robot continued driving forward, overshooting `(-5.0, 0.0)` into storage rack collisions (`code=103`), leaving subsequent goals trapped in occupied cells (`code=205 / START_OCCUPIED`). Fixed by setting `rotate_to_heading_min_angle: 0.20` (< `yaw_goal_tolerance: 0.35`) and `use_final_approach_orientation: true` in `SmacPlanner2D`.
+         - **Static TF Durability:** `/tf_static` requires `TRANSIENT_LOCAL` durability. Subscribed with `DurabilityPolicy.TRANSIENT_LOCAL` and added buffer check in `test_04_tf_tree_valid`.
+         - **Independent Repetition Isolation:** Upgraded `tools/run_scenarios.py` with per-repetition simulation lifecycle management (`start_simulation` and `stop_simulation`), eliminating accumulated odometry drift across runs.
+         - **Mission Route Alignment:** Aligned `warehouse_navigation_demo.xml` to execute return route from terminal station `(2.5, 0.0)` through central transit `(-2.0, 0.0)` to aisle entrance `(-5.0, 0.0)`.
 
 ## Validation results
 
