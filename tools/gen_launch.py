@@ -103,7 +103,7 @@ controller_server:
       lookahead_time: 1.0
       rotate_to_heading_angular_vel: {fmt(min(0.6, w))}
       use_rotate_to_heading: true
-      rotate_to_heading_min_angle: 0.25
+      rotate_to_heading_min_angle: 0.15
       max_angular_vel: {fmt(w)}
       max_angular_accel: {fmt(min(2.5, 3.0 * w))}
 
@@ -117,6 +117,7 @@ planner_server:
       tolerance: 0.5
       use_astar: false
       allow_unknown: true
+      use_final_approach_orientation: false
 
 bt_navigator:
   ros__parameters:
