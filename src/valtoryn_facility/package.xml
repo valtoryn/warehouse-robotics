@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>valtoryn_facility</name>
+  <version>0.1.0</version>
+  <description>
+    Valtoryn internal facility model (nodes, edges, zones, assets), exporters
+    to LIF / RMF nav graph / Nav2 GeoJSON / VDA 5050 order segments, and the
+    minimal reservation/queue fleet-coordination baseline per
+    docs/architecture/FACILITY_AND_FLEET_LAYER.md and
+    docs/architecture/ARCHITECTURE_DECISION_RECORDS.md ADR-008.
+    Status: software layer implemented; no ROS runtime is required to use it,
+    and no capability is validated on physical hardware.
+  </description>
+  <maintainer email="bhogesara.ram23@gmail.com">Ram Bhogesara</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>python3-jsonschema</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

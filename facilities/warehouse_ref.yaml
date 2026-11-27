@@ -1,0 +1,169 @@
+# Reference facility model — warehouse digital twin (Phase 4 fleet layer).
+#
+# Geometry is derived from worlds/warehouse.sdf: a 20 m x 16 m hall, four storage
+# rack rows (9.0 m x 0.9 m each, centred at x = 0, y = ±1.6 and y = ±4.2) leaving
+# three longitudinal aisles at y = +2.9 (north), y = 0.0 (central) and y = -2.9
+# (south), plus open halls west (x < -4.8) and east (x > 4.8) of the racks.
+# Pick stations sit at (-7, ±4), drop stations at (7, ±4) as in the world file.
+#
+# Route nodes are lane centres, not costmap geometry: the Nav2 stack still owns
+# obstacle avoidance inside an aisle. Node poses are [EST] engineering layout,
+# reconciled with the world file by tools/check_facility.py; the world file is
+# the simulation source of truth for physics, this file for fleet routing.
+#
+# Status: implemented software artifact. Not validated on physical hardware.
+
+schema_version: "1.0.0"
+name: "reference-warehouse"
+facility_map_version: 1
+frame: "map"
+default_speed: 1.0
+
+nodes:
+  # West hall — pick stations, charging bay, transit junctions.
+  - id: "pick_1"
+    node_type: "station"
+    pose: { x: -7.0, y: 4.0, theta: 0.0 }
+  - id: "pick_2"
+    node_type: "station"
+    pose: { x: -7.0, y: -4.0, theta: 0.0 }
+  - id: "charge_west"
+    node_type: "charging"
+    pose: { x: -8.5, y: 6.3, theta: 0.0 }
+  - id: "west_n"
+    node_type: "junction"
+    pose: { x: -6.0, y: 2.9, theta: 0.0 }
+  - id: "west_c"
+    node_type: "junction"
+    pose: { x: -6.0, y: 0.0, theta: 0.0 }
+  - id: "west_s"
+    node_type: "junction"
+    pose: { x: -6.0, y: -2.9, theta: 0.0 }
+
+  # North aisle (y = 2.9), central aisle (y = 0.0), south aisle (y = -2.9).
+  - id: "aisle_w_n"
+    node_type: "waypoint"
+    pose: { x: -4.8, y: 2.9, theta: 0.0 }
+  - id: "aisle_n_mid"
+    node_type: "waypoint"
+    pose: { x: 0.0, y: 2.9, theta: 0.0 }
+  - id: "aisle_e_n"
+    node_type: "waypoint"
+    pose: { x: 4.8, y: 2.9, theta: 0.0 }
+  - id: "aisle_w_c"
+    node_type: "waypoint"
+    pose: { x: -4.8, y: 0.0, theta: 0.0 }
+  - id: "aisle_c_mid"
+    node_type: "waypoint"
+    pose: { x: 0.0, y: 0.0, theta: 0.0 }
+  - id: "aisle_e_c"
+    node_type: "waypoint"
+    pose: { x: 4.8, y: 0.0, theta: 0.0 }
+  - id: "aisle_w_s"
+    node_type: "waypoint"
+    pose: { x: -4.8, y: -2.9, theta: 0.0 }
+  - id: "aisle_s_mid"
+    node_type: "waypoint"
+    pose: { x: 0.0, y: -2.9, theta: 0.0 }
+  - id: "aisle_e_s"
+    node_type: "waypoint"
+    pose: { x: 4.8, y: -2.9, theta: 0.0 }
+
+  # East hall — drop stations and transit junctions.
+  - id: "east_n"
+    node_type: "junction"
+    pose: { x: 6.0, y: 2.9, theta: 0.0 }
+  - id: "east_c"
+    node_type: "junction"
+    pose: { x: 6.0, y: 0.0, theta: 0.0 }
+  - id: "east_s"
+    node_type: "junction"
+    pose: { x: 6.0, y: -2.9, theta: 0.0 }
+  - id: "drop_1"
+    node_type: "station"
+    pose: { x: 7.0, y: 4.0, theta: 0.0 }
+  - id: "drop_2"
+    node_type: "station"
+    pose: { x: 7.0, y: -4.0, theta: 0.0 }
+
+edges:
+  # West hall links.
+  - { id: "e_pick1_westn", start_node: "pick_1", end_node: "west_n", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_pick1_charge", start_node: "pick_1", end_node: "charge_west", max_velocity: 0.6, bidirectional: true, edge_type: "lane" }
+  - { id: "e_charge_westn", start_node: "charge_west", end_node: "west_n", max_velocity: 0.6, bidirectional: true, edge_type: "lane" }
+  - { id: "e_westn_westc", start_node: "west_n", end_node: "west_c", max_velocity: 0.6, bidirectional: true, edge_type: "lane" }
+  - { id: "e_westc_wests", start_node: "west_c", end_node: "west_s", max_velocity: 0.6, bidirectional: true, edge_type: "lane" }
+  - { id: "e_pick2_wests", start_node: "pick_2", end_node: "west_s", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+
+  # North aisle.
+  - { id: "e_westn_aislewn", start_node: "west_n", end_node: "aisle_w_n", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_aislewn_nmid", start_node: "aisle_w_n", end_node: "aisle_n_mid", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_nmid_aisleen", start_node: "aisle_n_mid", end_node: "aisle_e_n", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_aisleen_eastn", start_node: "aisle_e_n", end_node: "east_n", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+
+  # Central aisle (narrow-aisle speed limit applies through zone_central_slow).
+  - { id: "e_westc_aislewc", start_node: "west_c", end_node: "aisle_w_c", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_aislewc_cmid", start_node: "aisle_w_c", end_node: "aisle_c_mid", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_cmid_aisleec", start_node: "aisle_c_mid", end_node: "aisle_e_c", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_aisleec_eastc", start_node: "aisle_e_c", end_node: "east_c", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+
+  # South aisle.
+  - { id: "e_wests_aislews", start_node: "west_s", end_node: "aisle_w_s", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_aislews_smid", start_node: "aisle_w_s", end_node: "aisle_s_mid", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_smid_aislees", start_node: "aisle_s_mid", end_node: "aisle_e_s", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_aislees_easts", start_node: "aisle_e_s", end_node: "east_s", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+
+  # East hall links.
+  - { id: "e_eastn_eastc", start_node: "east_n", end_node: "east_c", max_velocity: 0.6, bidirectional: true, edge_type: "lane" }
+  - { id: "e_eastc_easts", start_node: "east_c", end_node: "east_s", max_velocity: 0.6, bidirectional: true, edge_type: "lane" }
+  - { id: "e_eastn_drop1", start_node: "east_n", end_node: "drop_1", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+  - { id: "e_easts_drop2", start_node: "east_s", end_node: "drop_2", max_velocity: 0.8, bidirectional: true, edge_type: "lane" }
+
+zones:
+  # Narrow central aisle: fleet-level speed cap (mirrors the Nav2 costmap filter intent).
+  - id: "zone_central_slow"
+    zone_type: "speed_limit"
+    polygon: [[-4.8, -1.1], [4.8, -1.1], [4.8, 1.1], [-4.8, 1.1]]
+    speed_limit: 0.5
+    active: true
+
+  # Pallet stack at (0.5, 0.45) in the world file: no route node may sit inside it.
+  - id: "zone_pallet_keepout"
+    zone_type: "keep_out"
+    polygon: [[-0.05, 0.15], [1.05, 0.15], [1.05, 0.75], [-0.05, 0.75]]
+    active: true
+
+  # Declared but not currently enforced: exercises active/inactive zone toggling
+  # without republishing geometry (FacilityZone.msg semantics).
+  - id: "zone_north_maintenance"
+    zone_type: "blocked"
+    polygon: [[-4.8, 2.75], [4.8, 2.75], [4.8, 3.05], [-4.8, 3.05]]
+    active: false
+
+assets:
+  - id: "pick_station_1"
+    asset_type: "pick_station"
+    asset_version: 1
+    pose: { x: -7.0, y: 4.0, theta: 0.0 }
+    parent_node: "pick_1"
+  - id: "pick_station_2"
+    asset_type: "pick_station"
+    asset_version: 1
+    pose: { x: -7.0, y: -4.0, theta: 0.0 }
+    parent_node: "pick_2"
+  - id: "drop_station_1"
+    asset_type: "drop_station"
+    asset_version: 1
+    pose: { x: 7.0, y: 4.0, theta: 0.0 }
+    parent_node: "drop_1"
+  - id: "drop_station_2"
+    asset_type: "drop_station"
+    asset_version: 1
+    pose: { x: 7.0, y: -4.0, theta: 0.0 }
+    parent_node: "drop_2"
+  - id: "charger_west_1"
+    asset_type: "charging_station"
+    asset_version: 1
+    pose: { x: -8.5, y: 6.3, theta: 0.0 }
+    parent_node: "charge_west"
+    available: true

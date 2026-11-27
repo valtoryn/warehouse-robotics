@@ -27,6 +27,12 @@ jobs:
       - name: ROS interface and BT XML static checks
         run: python tools/check_interfaces.py
 
+      - name: Facility model checks
+        run: python tools/check_facility.py
+
+      - name: Fleet coordination simulation
+        run: python tools/run_fleet_sim.py
+
       - name: URDF generation smoke test
         run: python tools/gen_urdf.py config/robots/ref-amr-diff-v1.yaml --backend mock --out /tmp/ref-amr.urdf
 
@@ -115,3 +121,4 @@ jobs:
             generated/scenario_metrics.json
             generated/warehouse_sim.log
             generated/ref-amr-diff-v1_gazebo.urdf
+            generated/fleet_report.json

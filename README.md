@@ -4,11 +4,14 @@ An open-source effort to build a **fully modular autonomous warehouse robotics p
 that can run on different robot chassis, locomotion types, sensor sets and payload modules, from simulation through
 hardware-in-the-loop to physical deployment.
 
-> **Project status: research, architecture, declarative tooling, Phase 2 platform packages, and Phase 3 simulation.**
+> **Project status: research, architecture, declarative tooling, Phase 2 platform packages, Phase 3 simulation, and a
+> Phase 4 facility/fleet software layer.**
 > The repository contains research, architecture, and engineering specifications, declarative configuration tooling
 > (`schemas/`, `config/`, `modules/`, `tools/`), platform packages (`valtoryn_interfaces`, `valtoryn_diff_drive`,
 > `valtoryn_lifecycle`, `valtoryn_task_bt`, `valtoryn_bringup`), an authored warehouse digital twin (`worlds/warehouse.sdf`),
-> and Nav2 navigation and SLAM configurations.
+> Nav2 navigation and SLAM configurations, and a fleet layer (`valtoryn_facility`: internal facility model with LIF /
+> RMF / Nav2 GeoJSON / VDA 5050 order exporters, default-deny capability dispatch, and a reservation/queue coordinator
+> verified by a deterministic two-robot coordination simulation).
 > Platform software components are validated by unit test suites offline and by automated ROS 2 Jazzy and
 > Gazebo Harmonic integration suites in CI.
 > No capability has been physically validated on hardware. Nothing here is safety-rated or certified for use around people.
@@ -41,7 +44,7 @@ Documents distinguish six states and never describe a capability at a higher lev
 | Simulated | Behaviour demonstrated under a physics-based simulator (e.g. Gazebo Sim) |
 | Physically validated | Behaviour demonstrated on real physical hardware, with recorded evidence |
 
-Currently, platform configuration tooling, kinematics models, interface packages, hardware abstraction components, lifecycle supervisor logic, Gazebo Harmonic simulation, and Nav2 navigation packages are at the *Implemented* level locally and verified under *Compiled* and *Simulated* (E0/E1) levels in the continuous integration environment (ROS 2 Jazzy Jalisco on Ubuntu 24.04 LTS with Gazebo Harmonic). No capability is at the *Physically validated* level.
+Currently, platform configuration tooling, kinematics models, interface packages, hardware abstraction components, lifecycle supervisor logic, Gazebo Harmonic simulation, Nav2 navigation packages, and the facility/fleet software layer are at the *Implemented* level locally and verified under *Compiled* and *Simulated* (E0/E1) levels in the continuous integration environment (ROS 2 Jazzy Jalisco on Ubuntu 24.04 LTS with Gazebo Harmonic). Fleet coordination is verified in a deterministic software simulation of two robots over the facility route graph, not in the Gazebo twin, and multi-robot Gazebo bring-up remains open work. No capability is at the *Physically validated* level.
 
 ## Repository guide
 
@@ -52,6 +55,7 @@ Currently, platform configuration tooling, kinematics models, interface packages
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community standards (Contributor Covenant 2.1) |
 | [SECURITY.md](SECURITY.md) | Security and safety-disclaimer policy |
 | [CITATION.cff](CITATION.cff) | How to cite this project |
+| [FACILITY_AND_FLEET_LAYER.md](docs/architecture/FACILITY_AND_FLEET_LAYER.md) | Facility model, exporters, dispatch and coordination baseline, and what is still open |
 | [LICENSE](LICENSE) | Apache License 2.0 |
 | [tools/check_docs.py](tools/check_docs.py) | Documentation checker: internal links, citation integrity, URL reachability |
 
