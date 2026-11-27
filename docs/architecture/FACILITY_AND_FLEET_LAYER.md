@@ -1,6 +1,7 @@
 # Facility model and fleet-coordination layer
 
-> **Status:** Implemented software layer (unit-tested offline, deterministic simulation).
+> **Status:** Implemented software layer (unit-tested offline, deterministic simulation, and a
+> standard-library HTTP order API).
 > Not validated in Gazebo multi-robot simulation, not validated on physical hardware, and not
 > safety-rated. No Open-RMF or VDA 5050 conformance is claimed.
 > **Basis:** FR-F1..FR-F7 in [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md), section 9 of
@@ -25,10 +26,12 @@ physical or simulated robot:
 | Deterministic two-robot coordination simulation | `src/valtoryn_facility/valtoryn_facility/sim.py` | Implemented (software model) |
 | Facility validator | [tools/check_facility.py](../../tools/check_facility.py) | Implemented |
 | Scenario runner | [tools/run_fleet_sim.py](../../tools/run_fleet_sim.py) | Implemented |
+| WMS-facing order API (service + stdlib HTTP binding) | `src/valtoryn_facility/valtoryn_facility/api.py` | Implemented (skeleton) |
+| Order API server CLI | [tools/serve_fleet_api.py](../../tools/serve_fleet_api.py) | Implemented |
 
 Still open (not implemented, not claimed): multi-robot Gazebo Harmonic bring-up, a ROS 2 node
-publishing `FacilityMap` and consuming orders, the WMS-facing API, Open-RMF backend adapter, and any
-VDA 5050 MQTT transport. Those need either a second simulated robot or a decision that gate G-E has
+publishing `FacilityMap` and consuming orders, an Open-RMF backend adapter, and any VDA 5050 MQTT
+transport. Those need either a second simulated robot or a decision that gate G-E has
 not yet produced.
 
 ## 2. Facility model
@@ -118,7 +121,32 @@ The baseline is deliberately small (ADR-008) and deadlock-free by construction:
   connectivity finishes its released base and reports on reconnect (FR-F3 store-and-forward). The
   order completes only during that reconciliation and records that comms were lost.
 
-## 6. What the scenario runner verifies, and what it does not
+## 6. Order API (FR-F7)
+
+`api.py` exposes the coordinator as a task/order surface, and
+[tools/serve_fleet_api.py](../../tools/serve_fleet_api.py) serves it over JSON/HTTP with the Python
+standard library only; no web framework dependency was added. Two surfaces share one service object:
+
+- **WMS-facing:** `POST /api/v1/orders` for intake, `GET /api/v1/orders[/{id}]` for query, and
+  `POST /api/v1/orders/{id}/verification` to resolve a parked ambiguous outcome.
+- **Robot gateway:** `POST /api/v1/robots/{id}/position|completed|connectivity`, the callbacks a VDA 5050
+  or Nav2 bridge would deliver, plus `POST /api/v1/dispatch` to run the queue.
+
+`POST /orders` requires an `Idempotency-Key` header (or an equivalent body field; a mismatch between the two is refused). Replaying a key returns the original order with HTTP 200 and
+`idempotent_replay: true` instead of 201, and reusing an order id with a different key is a 409. Unknown
+nodes, malformed or undeclared fields and malformed JSON are refused with 400 before an order exists.
+Capability denial stays a coordinator decision, so it appears as a `REJECTED` order rather than as an
+HTTP error: the transport does not second-guess dispatch. Comms loss is visible over the API — a
+completion callback from an offline robot answers 202 `AWAITING_RECONCILIATION`, and the order only
+completes when the robot reports its link back.
+
+The service is a skeleton. There is no authentication, authorisation, TLS, persistence, rate limiting,
+clock synchronisation or WMS adapter, and the contract has not been exercised against a real WMS. State
+is single-process and in memory, so a restart loses every order. It changes none of the coordinator's
+rules: default-deny dispatch, whole-route reservation, idempotency and verification parking remain the
+authority, and the API only exposes them.
+
+## 7. What the scenario runner verifies, and what it does not
 
 `tools/run_fleet_sim.py` runs two reference AMRs over the facility graph: one west-to-east through
 the north aisle, one west-to-east through the south aisle, plus a payload order the fleet must
@@ -131,7 +159,7 @@ or DDS, and it does not model collisions, kinematics, sensor noise or Wi-Fi beha
 completing coordinated missions in the physics twin is still open Phase 4 work, and nothing here is
 evidence about the physical warehouse.
 
-## 7. Validation performed
+## 8. Validation performed
 
 - `python tools/check_facility.py` — 1 document, 0 errors, 0 warnings.
 - `python tools/run_fleet_sim.py` — both move orders `COMPLETED`, payload order denied with the
@@ -140,12 +168,18 @@ evidence about the physical warehouse.
   validation, routing with speed limits and blocked lanes, exporter round-trip and VDA 5050 horizon
   rules, default-deny dispatch, queueing, idempotency, verification parking, comms-loss
   reconciliation, determinism, and reservation release.
+- `python -m unittest tests.test_fleet_api -v` — 29 tests, all passing, exercising the order API over a
+  real `ThreadingHTTPServer` on an ephemeral loopback port: intake, idempotent replay, key/order-id
+  conflicts, validation errors, default-deny dispatch, reservation and queueing, ambiguous outcome and
+  verification, comms-loss reconciliation, robot callbacks, state filtering, 404/405 handling and eight
+  concurrent submissions under one idempotency key.
 
-## 8. Unresolved
+## 9. Unresolved
 
 - Coordination algorithm beyond all-or-nothing reservation (negotiation, partial reservation,
   multi-robot Gazebo validation).
 - RMF graph and LIF export verification against upstream tooling.
 - VDA 5050 v3 conformance and MQTT transport (gate G-E).
-- WMS-facing task/order API surface (FR-F7) and its idempotency contract with an actual WMS.
+- Order API hardening: authentication, TLS, persistence, rate limiting, and contract validation against
+  an actual WMS. The current surface is a skeleton, not an interoperable contract.
 - Throughput measurement of the baseline under fleet load; no performance claim is made.

@@ -10,8 +10,9 @@ hardware-in-the-loop to physical deployment.
 > (`schemas/`, `config/`, `modules/`, `tools/`), platform packages (`valtoryn_interfaces`, `valtoryn_diff_drive`,
 > `valtoryn_lifecycle`, `valtoryn_task_bt`, `valtoryn_bringup`), an authored warehouse digital twin (`worlds/warehouse.sdf`),
 > Nav2 navigation and SLAM configurations, and a fleet layer (`valtoryn_facility`: internal facility model with LIF /
-> RMF / Nav2 GeoJSON / VDA 5050 order exporters, default-deny capability dispatch, and a reservation/queue coordinator
-> verified by a deterministic two-robot coordination simulation).
+> RMF / Nav2 GeoJSON / VDA 5050 order exporters, default-deny capability dispatch, a reservation/queue coordinator
+> verified by a deterministic two-robot coordination simulation, and a WMS-facing order API skeleton served over
+> standard-library HTTP).
 > Platform software components are validated by unit test suites offline and by automated ROS 2 Jazzy and
 > Gazebo Harmonic integration suites in CI.
 > No capability has been physically validated on hardware. Nothing here is safety-rated or certified for use around people.
@@ -44,7 +45,7 @@ Documents distinguish six states and never describe a capability at a higher lev
 | Simulated | Behaviour demonstrated under a physics-based simulator (e.g. Gazebo Sim) |
 | Physically validated | Behaviour demonstrated on real physical hardware, with recorded evidence |
 
-Currently, platform configuration tooling, kinematics models, interface packages, hardware abstraction components, lifecycle supervisor logic, Gazebo Harmonic simulation, Nav2 navigation packages, and the facility/fleet software layer are at the *Implemented* level locally and verified under *Compiled* and *Simulated* (E0/E1) levels in the continuous integration environment (ROS 2 Jazzy Jalisco on Ubuntu 24.04 LTS with Gazebo Harmonic). Fleet coordination is verified in a deterministic software simulation of two robots over the facility route graph, not in the Gazebo twin, and multi-robot Gazebo bring-up remains open work. No capability is at the *Physically validated* level.
+Currently, platform configuration tooling, kinematics models, interface packages, hardware abstraction components, lifecycle supervisor logic, Gazebo Harmonic simulation, Nav2 navigation packages, and the facility/fleet software layer are at the *Implemented* level locally and verified under *Compiled* and *Simulated* (E0/E1) levels in the continuous integration environment (ROS 2 Jazzy Jalisco on Ubuntu 24.04 LTS with Gazebo Harmonic). Fleet coordination is verified in a deterministic software simulation of two robots over the facility route graph, not in the Gazebo twin, and multi-robot Gazebo bring-up remains open work. The order API is verified only as a local software contract over loopback HTTP: it has no authentication, TLS or persistence, and it has not been tested against a real WMS. No capability is at the *Physically validated* level.
 
 ## Repository guide
 

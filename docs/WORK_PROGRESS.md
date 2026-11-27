@@ -263,6 +263,30 @@
 - **CI:** Added `Facility model checks` and `Fleet coordination simulation` steps to the offline job
   and archived `generated/fleet_report.json` with the simulation artifacts.
 
+## Phase 4 order API (FR-F7) — WMS-facing surface
+
+- **Service (`api.py`):** Added `OrderService`, a transport-agnostic order surface over
+  `FleetCoordinator`: intake with mandatory idempotency key, order query/filtering, dispatch trigger,
+  pick/drop outcome reporting, `NEEDS_VERIFICATION` resolution, robot gateway callbacks (position,
+  completed, connectivity) and a full snapshot. Every method is serialised on one lock, because the
+  HTTP binding is threaded and the coordinator is not. All coordination rules stay in the coordinator;
+  the API only exposes and validates them.
+- **HTTP binding:** Added `FleetApiServer` / `make_server` on `http.server` only, with JSON requests and
+  responses under `/api/v1`, stable error codes (`MISSING_IDEMPOTENCY_KEY`, `ORDER_CONFLICT`,
+  `INVALID_ORDER_STATE`, `NOT_FOUND`, `METHOD_NOT_ALLOWED`, …), `Cache-Control: no-store`, and a 1 MiB
+  body limit. No third-party web framework dependency was introduced.
+- **Server CLI:** Added `tools/serve_fleet_api.py`, which serves the reference facility and the same
+  reference fleet the coordination simulation uses, loopback by default, with the endpoint list printed
+  on start.
+- **Contract decisions:** replaying an idempotency key returns HTTP 200 with `idempotent_replay: true`
+  (201 only when the order is created); reusing an order id under a new key is a 409; unknown nodes and
+  malformed fields are 400 before an order exists; capability denial is a `REJECTED` order, not an HTTP
+  error, because dispatch remains the authority; a completion callback from an offline robot is 202
+  `AWAITING_RECONCILIATION` and completes on reconnect.
+- **Honest limits:** the surface has no authentication, authorisation, TLS, persistence, rate limiting,
+  clock synchronisation or WMS adapter, and the contract has not been exercised against a real WMS. It is
+  documented as a skeleton in `docs/architecture/FACILITY_AND_FLEET_LAYER.md` section 6.
+
 ## Validation results (Phase 4 software baseline)
 
 - `python tools/check_facility.py`: 1 document, 0 errors, 0 warnings.
@@ -273,6 +297,12 @@
   with speed limits and blocked lanes, exporter round-trip and VDA 5050 horizon rules, default-deny
   dispatch, queueing, idempotency, verification parking, comms-loss reconciliation, determinism,
   reservation release).
+- `python -m unittest tests.test_fleet_api -v`: 29 tests passed against a real loopback HTTP server
+  (intake, idempotent replay, 409 conflicts, validation errors, default-deny dispatch, reservation and
+  queueing, ambiguous outcome and verification, comms-loss reconciliation, robot callbacks, state
+  filtering, 404/405 handling, eight concurrent submissions under one idempotency key).
+- `python tools/serve_fleet_api.py --help`: starts and prints the endpoint list; bound only to
+  127.0.0.1.
 - `python tools/check_docs.py`, `python tools/check_config.py`, `python tools/check_interfaces.py`:
   unchanged and passing after the documentation and CI edits.
 
@@ -282,8 +312,8 @@
 - **Phase 1 Leftovers:** Physical floor survey (G-F) upon site access.
 - **Phase 4 remaining items:** Multi-robot Gazebo Harmonic bring-up (second AMR, per-robot namespaces and
   costmaps); ROS 2 node publishing `FacilityMap` and consuming orders; RMF/LIF export verification against
-  upstream tooling; VDA 5050 v3 gateway transport and conformance (gate G-E); WMS-facing task/order API
-  skeleton (FR-F7); coordination throughput measurement under fleet load.
+  upstream tooling; VDA 5050 v3 gateway transport and conformance (gate G-E); order API hardening
+  (auth, TLS, persistence, WMS contract validation); coordination throughput measurement under fleet load.
 
 ## Exact next action
 
