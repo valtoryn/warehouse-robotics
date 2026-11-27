@@ -72,23 +72,25 @@ queue baseline coordinator; capability-matching dispatch (default-deny); VDA 505
 API skeleton.
 
 **Status:** In progress. The software layer is implemented in `src/valtoryn_facility/`
-(`facility_model`, `exporters`, `dispatch`, `coordinator`, `sim`) over the validated reference facility
-`facilities/warehouse_ref.yaml`, with `tools/check_facility.py` and `tools/run_fleet_sim.py` in CI and 40
-unit tests in `tests/test_facility.py`. Completed: facility model and schema, LIF / RMF graph / Nav2
-GeoJSON / VDA 5050 order exporters, default-deny capability dispatch, whole-route reservation queueing,
-idempotent order lifecycle with `NEEDS_VERIFICATION`, and two-robot coordination in a deterministic
-software simulation (including simulated comms loss). Not yet done: multi-robot Gazebo Harmonic
-bring-up, ROS 2 node wiring, RMF/LIF export verification, VDA 5050 transport/conformance (gate G-E), and
-the WMS-facing API skeleton.
+(`facility_model`, `exporters`, `dispatch`, `coordinator`, `sim`, `api`) over the validated reference
+facility `facilities/warehouse_ref.yaml`, with `tools/check_facility.py`, `tools/run_fleet_sim.py` and
+`tools/serve_fleet_api.py` in the repository and 40 + 29 unit tests in `tests/test_facility.py` and
+`tests/test_fleet_api.py`. Completed: facility model and schema, LIF / RMF graph / Nav2 GeoJSON / VDA 5050
+order exporters, default-deny capability dispatch, whole-route reservation queueing, idempotent order
+lifecycle with `NEEDS_VERIFICATION`, two-robot coordination in a deterministic software simulation
+(including simulated comms loss), and a WMS-facing order API skeleton (stdlib HTTP service with
+idempotent intake, query, verification and robot gateway callbacks). Not yet done: multi-robot Gazebo
+Harmonic bring-up, ROS 2 node wiring, RMF/LIF export verification, VDA 5050 transport/conformance (gate
+G-E), order API hardening (auth, TLS, persistence, real-WMS contract), and throughput measurement.
 
 See [FACILITY_AND_FLEET_LAYER.md](../architecture/FACILITY_AND_FLEET_LAYER.md).
 
 **Acceptance:** two simulated robots complete coordinated missions; order survives simulated comms loss
 (released base completes); gateway passes spec-conformance checks; exports round-trip.
 **Acceptance status:** partially met — two simulated robots complete coordinated missions and an order
-survives simulated comms loss in the software coordination simulation; Nav2 GeoJSON exports round-trip.
-Gateway conformance (gate G-E) and multi-robot physics simulation are outstanding, so the phase is not
-closed.
+survives simulated comms loss in the software coordination simulation; Nav2 GeoJSON exports round-trip;
+the order API contract is covered end to end over loopback HTTP. Gateway conformance (gate G-E) and
+multi-robot physics simulation are outstanding, so the phase is not closed.
 **Prerequisites:** Phase 3; G-E.
 
 ## Phase 5 — Hardware bring-up (first physical robot)

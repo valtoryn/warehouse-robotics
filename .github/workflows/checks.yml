@@ -33,6 +33,9 @@ jobs:
       - name: Fleet coordination simulation
         run: python tools/run_fleet_sim.py
 
+      - name: Order API smoke test
+        run: python tools/serve_fleet_api.py --self-check --port 0 --quiet
+
       - name: URDF generation smoke test
         run: python tools/gen_urdf.py config/robots/ref-amr-diff-v1.yaml --backend mock --out /tmp/ref-amr.urdf
 
