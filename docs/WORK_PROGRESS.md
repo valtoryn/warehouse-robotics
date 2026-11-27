@@ -1,7 +1,7 @@
 # Work progress — Phase 1 decision gates & Phase 2 implementation
 
 > Persistent checkpoint for multi-session work. Update after each completed milestone.
-> Last updated: 2026-11-10.
+> Last updated: 2026-11-27.
 
 ## Completed work
 
@@ -228,12 +228,65 @@
   - Physical hardware boundaries strictly enforced: BehaviorTree material-handling stubs (`PayloadPickStub`, `PayloadDropStub`, `DockRobotStub`) fail closed with exit code 3 and explicit unverified hardware logging (`test_10`).
   - Full CI pipeline completely green across all jobs (`static-and-unit-checks`, `ros-jazzy-build-and-test`, `gazebo-harmonic-nav2-simulation`).
 
+## Phase 4 Facility and fleet layer — software baseline
+
+- **Facility model (FR-F1, FR-A4):** Added `schemas/facility-map.schema.json` and
+  `src/valtoryn_facility/valtoryn_facility/facility_model.py`. One internal, versioned model of
+  topology (nodes, directed lanes), zones (`keep_out`, `speed_limit`, `blocked`, …), and assets with
+  independent per-class versions plus a monotonic `facility_map_version`. Loading is two-stage
+  (JSON Schema, then structural rules) and `tools/check_facility.py` validates every document.
+- **Reference facility:** Authored `facilities/warehouse_ref.yaml` against `worlds/warehouse.sdf`: the
+  three longitudinal aisles (y = +2.9, 0.0, -2.9), west/east halls, the four pick/drop stations, a
+  charging bay, a narrow-aisle speed limit over the central aisle, a keep-out polygon over the static
+  pallet stack, and an inactive `blocked` zone that exercises active/inactive toggling.
+- **Routing:** Minimum-time Dijkstra over the lane graph. Active speed-limit zones cap lane speed,
+  active `blocked` zones remove lanes, and route nodes inside keep-out zones are rejected.
+- **Exporters:** `exporters.py` produces a Nav2 route-server shaped GeoJSON collection (with an
+  importer used for round-trip tests), an RMF navigation-graph shaped document, a lane-indexed LIF
+  view, and a VDA 5050 v3 order document with released-base/horizon handling
+  (`apply_horizon_update`, monotonic only). These are document shapes; no upstream tool or
+  conformance suite has verified them, and gate G-E is still open.
+- **Capability dispatch (FR-F5):** `dispatch.py` denies tasks that declare no requirements, denies
+  robots lacking a required capability, denies declared-only capabilities when verification is
+  required, skips unavailable/low-battery robots, and picks the nearest eligible robot. Capability
+  gaps are reported before transient state, so an impossible task never reads as fleet congestion.
+- **Coordinator (FR-F4, FR-F6, FR-F3):** `coordinator.py` implements all-or-nothing whole-route
+  reservation (deadlock-free by construction: a robot never holds reservations while waiting),
+  FIFO-by-submission queueing, release on advance, idempotency keys, `NEEDS_VERIFICATION` parking for
+  ambiguous pick/drop outcomes, and store-and-forward completion across a simulated comms loss.
+- **Coordination simulation:** `sim.py` plus `tools/run_fleet_sim.py` drive two reference AMRs over
+  the facility graph at lane speed limits, detect lanes traversed without their reservation, and
+  write `generated/fleet_report.json`. This is a software simulation of coordination logic, not a
+  physics simulation.
+- **Documentation:** New `docs/architecture/FACILITY_AND_FLEET_LAYER.md`; roadmap Phase 4 status,
+  README evidence status and CI updated accordingly.
+- **CI:** Added `Facility model checks` and `Fleet coordination simulation` steps to the offline job
+  and archived `generated/fleet_report.json` with the simulation artifacts.
+
+## Validation results (Phase 4 software baseline)
+
+- `python tools/check_facility.py`: 1 document, 0 errors, 0 warnings.
+- `python tools/run_fleet_sim.py`: `move-1001` and `move-1002` `COMPLETED` (18.75 s each, simulated);
+  `transfer-2001` denied `NO_ELIGIBLE_ROBOT` citing the missing/unverified payload capability;
+  0 reservation violations; `generated/fleet_report.json` written.
+- `python -m unittest tests.test_facility -v`: 40 tests passed (schema/structural validation, routing
+  with speed limits and blocked lanes, exporter round-trip and VDA 5050 horizon rules, default-deny
+  dispatch, queueing, idempotency, verification parking, comms-loss reconciliation, determinism,
+  reservation release).
+- `python tools/check_docs.py`, `python tools/check_config.py`, `python tools/check_interfaces.py`:
+  unchanged and passing after the documentation and CI edits.
+
 ## Remaining work
 
 - **Owner Decision on Distro Pin:** Confirm choice between Option 1 (Jazzy Jalisco on Ubuntu 24.04 LTS, active baseline) and Option 2/3.
 - **Phase 1 Leftovers:** Physical floor survey (G-F) upon site access.
-- **Phase 4 Fleet and Facility Layer (Simulation):** Author facility model, graph exporters (LIF, RMF graph, Nav2 GeoJSON), queue/reservation multi-robot baseline coordinator, VDA 5050 v3 robot-side gateway, and multi-robot simulated missions.
+- **Phase 4 remaining items:** Multi-robot Gazebo Harmonic bring-up (second AMR, per-robot namespaces and
+  costmaps); ROS 2 node publishing `FacilityMap` and consuming orders; RMF/LIF export verification against
+  upstream tooling; VDA 5050 v3 gateway transport and conformance (gate G-E); WMS-facing task/order API
+  skeleton (FR-F7); coordination throughput measurement under fleet load.
 
 ## Exact next action
 
-Begin Phase 4 Fleet and Facility Layer: design internal facility model schema and multi-robot fleet coordination baseline in Gazebo Harmonic simulation.
+Add ROS 2 wiring for the facility layer: a `valtoryn_facility` node that publishes the validated
+`FacilityMap` (built from `facilities/warehouse_ref.yaml`) and a second AMR in the Gazebo twin with
+namespaced controller/Nav2 topics, then rerun `tools/run_scenarios.py` with both robots present.

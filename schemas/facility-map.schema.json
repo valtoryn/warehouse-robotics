@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/valtoryn/warehouse-robotics/schemas/facility-map.schema.json",
+  "title": "Valtoryn facility map",
+  "description": "Internal, versioned facility model owned by fleet intelligence (L6) per docs/architecture/MODULARITY_SPECIFICATION.md section 9 and docs/architecture/FACILITY_AND_FLEET_LAYER.md. Topology (nodes, directed edges), zones and constraints, assets, and an independent facility-map version. External formats (LIF, RMF nav graph, Nav2 GeoJSON, VDA 5050 order segments) are exports of this model, never the storage format.",
+  "type": "object",
+  "required": ["schema_version", "name", "facility_map_version", "frame", "nodes", "edges", "zones", "assets"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Facility-document schema SemVer. Breaking changes increment major."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "facility_map_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic facility revision exchanged with fleet control. Independent of software releases (FR-A4)."
+    },
+    "frame": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Facility-level map frame all poses are expressed in, e.g. \"map\"."
+    },
+    "default_speed": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Default lane traversal speed [m/s] when an edge declares no max_velocity."
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+    "zones": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/zone" }
+    },
+    "assets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/asset" }
+    }
+  },
+  "$defs": {
+    "pose": {
+      "type": "object",
+      "required": ["x", "y"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "theta": { "type": "number" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": ["id", "node_type", "pose"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "node_type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Open/extensible: station, junction, charging, waypoint, ..."
+        },
+        "pose": { "$ref": "#/$defs/pose" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["id", "start_node", "end_node"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "start_node": { "type": "string", "minLength": 1 },
+        "end_node": { "type": "string", "minLength": 1 },
+        "max_velocity": { "type": "number", "exclusiveMinimum": 0 },
+        "bidirectional": { "type": "boolean" },
+        "edge_type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Open/extensible: lane, doorway, lift, ..."
+        }
+      }
+    },
+    "zone": {
+      "type": "object",
+      "required": ["id", "zone_type", "polygon"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "zone_type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "keep_out, speed_limit, preferred_lane, blocked, released, restricted (open/extensible)."
+        },
+        "polygon": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "number" }
+          }
+        },
+        "speed_limit": { "type": "number", "exclusiveMinimum": 0 },
+        "active": { "type": "boolean" }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "required": ["id", "asset_type", "asset_version", "pose", "parent_node"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "asset_type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "dock, charging_station, door, lift, pick_station, drop_station, ..."
+        },
+        "asset_version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Per-asset-class version, versioned independently of the map (MODULARITY_SPEC section 9)."
+        },
+        "pose": { "$ref": "#/$defs/pose" },
+        "parent_node": { "type": "string", "minLength": 1 },
+        "available": { "type": "boolean" }
+      }
+    }
+  }
+}
